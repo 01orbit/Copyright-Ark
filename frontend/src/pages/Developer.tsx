@@ -5,11 +5,9 @@ import { Link } from "react-router-dom";
 import { useAccount, useReadContract } from "wagmi";
 import { marketAddress } from "../config";
 import { abi, useMarket, useNetwork } from "../market";
-import { coverApi, localTokenKey } from "../covers/client";
 import {
   Field,
   FormTextArea,
-  FormInput,
   Notice,
   PageHeading,
   Panel,
@@ -33,8 +31,6 @@ export default function Developer() {
   );
   const [accounts, setAccounts] = useState(() => loadAccounts(chain));
   const [message, setMessage] = useState("");
-  const [coverToken, setCoverToken] = useState("");
-  const [coverMessage, setCoverMessage] = useState("");
   const contract = marketAddress(chainId);
   const { data: owner, error: ownerError } = useReadContract({
     address: contract,
@@ -102,23 +98,6 @@ export default function Developer() {
         )}
         {switchError && <Notice>{t("钱包切网失败，请检查 MetaMask。")}</Notice>}
       </Panel>
-      {coverApi && chainId === 31337 && <Panel title={t("本地链封面测试")}>
-        <p className="text-sm text-muted">{t("云端无法核验本机 Hardhat。仅测试封面上传需要站点维护者提供的口令，Sepolia 不使用此口令。")}</p>
-        <Field label={t("本地封面上传口令")}>
-          <FormInput type="password" autoComplete="off" value={coverToken} onChange={(event) => setCoverToken(event.target.value)} />
-        </Field>
-        <div className="flex gap-3">
-          <Button size="sm" isDisabled={!coverToken.trim()} onPress={() => {
-            try { sessionStorage.setItem(localTokenKey, coverToken.trim()); setCoverToken(""); setCoverMessage("测试口令已保存，仅当前标签页会话有效。"); }
-            catch { setCoverMessage("无法保存，请检查浏览器是否允许本地存储。"); }
-          }}>{t("保存测试口令")}</Button>
-          <Button size="sm" variant="outline" onPress={() => {
-            try { sessionStorage.removeItem(localTokenKey); setCoverToken(""); setCoverMessage("测试口令已清除。"); }
-            catch { setCoverMessage("无法保存，请检查浏览器是否允许本地存储。"); }
-          }}>{t("清除测试口令")}</Button>
-        </div>
-        <Notice>{coverMessage}</Notice>
-      </Panel>}
       <div className="grid items-start gap-6 lg:grid-cols-[3fr_2fr]">
         <Panel title={t("测试地址")}>
           <p className="text-sm text-muted">

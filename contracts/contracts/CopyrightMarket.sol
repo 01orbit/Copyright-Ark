@@ -24,12 +24,12 @@ contract CopyrightMarket is Ownable2Step, ReentrancyGuard {
     enum CaseOutcome { None, Uphold, Invalidate }
     enum CreditSource { OfferDeposit, LicensePrice, LicenseSettlement, CaseReward }
 
-    struct Work { uint256 id; bytes32 fileHash; address registrant; string title; string description; uint8 category; uint8 coverId; uint64 registeredAt; uint64 invalidatedAt; uint256 invalidatedByCaseId; uint256 previousWorkId; uint256 acceptedCount; }
+    struct Work { uint256 id; bytes32 fileHash; address registrant; string title; string description; uint8 category; string referenceUrl; uint64 registeredAt; uint64 invalidatedAt; uint256 invalidatedByCaseId; uint256 previousWorkId; uint256 acceptedCount; }
     struct Offer { uint256 id; uint256 workId; address seller; uint256 price; uint256 compensation; uint64 duration; uint64 acceptUntil; uint64 createdAt; string scope; bytes32 termsHash; OfferStoredState state; OfferCloseReason closeReason; uint256 licenseId; }
     struct License { uint256 id; uint256 offerId; uint256 workId; address seller; address licensee; uint64 startsAt; uint64 endsAt; uint64 authorRevokedAt; bool settled; SettlementReason settlementReason; uint64 settledAt; }
     struct CaseRecord { uint256 id; uint256 workId; string externalRef; bytes32 evidenceHash; address openedBy; uint64 openedAt; CaseStatus status; CaseOutcome outcome; bytes32 decisionHash; string decisionSummary; address resolvedBy; uint64 resolvedAt; uint256 rewardAmount; bool rewardCredited; }
 
-    error NotFound(); error ZeroHash(); error EmptyField(); error FieldTooLong(); error InvalidCategory(); error InvalidCover(); error DuplicateActiveWork(); error NotRegistrant(); error WorkInvalidatedError(); error InvalidAmount(); error InvalidDuration(); error InvalidAcceptUntil(); error OfferNotOpen(); error OfferNotRefundable(); error SelfPurchase(); error TermsMismatch(); error LicenseNotActive(); error LicenseNotSettleable(); error AlreadySettled(); error ZeroRecipient(); error ZeroBalance(); error TransferFailed(); error InvalidPage(); error InvalidCaseRef(); error DuplicateCaseRef(); error PendingCaseExists(); error CaseNotPending(); error InvalidOutcome(); error RewardAlreadyCredited(); error InsufficientRewardPool(); error NotPayableAmount();
+    error NotFound(); error ZeroHash(); error EmptyField(); error FieldTooLong(); error InvalidCategory(); error InvalidReferenceUrl(); error DuplicateActiveWork(); error NotRegistrant(); error WorkInvalidatedError(); error InvalidAmount(); error InvalidDuration(); error InvalidAcceptUntil(); error OfferNotOpen(); error OfferNotRefundable(); error SelfPurchase(); error TermsMismatch(); error LicenseNotActive(); error LicenseNotSettleable(); error AlreadySettled(); error ZeroRecipient(); error ZeroBalance(); error TransferFailed(); error InvalidPage(); error InvalidCaseRef(); error DuplicateCaseRef(); error PendingCaseExists(); error CaseNotPending(); error InvalidOutcome(); error RewardAlreadyCredited(); error InsufficientRewardPool(); error NotPayableAmount();
 
     uint256 public nextWorkId = 1; uint256 public nextOfferId = 1; uint256 public nextLicenseId = 1; uint256 public nextCaseId = 1;
     uint256 public totalLockedDeposits; uint256 public totalClaimable; uint256 public rewardPoolBalance; uint256 public pendingCaseRewards;
@@ -64,11 +64,11 @@ contract CopyrightMarket is Ownable2Step, ReentrancyGuard {
         gasSubsidy = gasSubsidy_; reviewReward = reviewReward_;
     }
 
-    function registerWork(bytes32 fileHash, string calldata title, string calldata description, uint8 category, uint8 coverId) external returns (uint256 id) {
+    function registerWork(bytes32 fileHash, string calldata title, string calldata description, uint8 category, string calldata referenceUrl) external returns (uint256 id) {
         if (fileHash == bytes32(0)) revert ZeroHash(); if (activeWorkByHash[fileHash] != 0) revert DuplicateActiveWork();
-        _checkBytes(title,1,96); _checkBytes(description,0,512); if(category<1||category>5) revert InvalidCategory(); if(coverId>7) revert InvalidCover();
+        _checkBytes(title,1,96); _checkBytes(description,0,512); _checkBytes(referenceUrl,0,256); if(bytes(referenceUrl).length!=0&&!_hasHttpScheme(referenceUrl)) revert InvalidReferenceUrl(); if(category<1||category>5) revert InvalidCategory();
         id=nextWorkId++; uint256 previous=latestWorkByHash[fileHash];
-        works[id]=Work(id,fileHash,msg.sender,title,description,category,coverId,uint64(block.timestamp),0,0,previous,0);
+        works[id]=Work(id,fileHash,msg.sender,title,description,category,referenceUrl,uint64(block.timestamp),0,0,previous,0);
         workIds.push(id); worksByRegistrant[msg.sender].push(id); worksByHash[fileHash].push(id); activeWorkByHash[fileHash]=id; latestWorkByHash[fileHash]=id;
         emit WorkRegistered(id,fileHash,msg.sender,previous,uint64(block.timestamp));
     }
@@ -122,6 +122,7 @@ contract CopyrightMarket is Ownable2Step, ReentrancyGuard {
     function _isOfferOpen(Offer memory o) internal view returns(bool){if(o.state!=OfferStoredState.Open||block.timestamp>=o.acceptUntil)return false;Work memory w=works[o.workId];return w.invalidatedAt==0;}
     function _credit(address account,uint256 amount,CreditSource source,uint256 id) internal {if(amount==0)return;claimable[account]+=amount;totalClaimable+=amount;emit BalanceCredited(account,amount,source,id);}
     function _checkBytes(string memory value,uint256 min,uint256 max) internal pure {uint256 n=bytes(value).length;if(n<min)revert EmptyField();if(n>max)revert FieldTooLong();}
+    function _hasHttpScheme(string memory value) internal pure returns(bool){bytes memory b=bytes(value);return (b.length>=7&&b[0]==0x68&&b[1]==0x74&&b[2]==0x74&&b[3]==0x70&&b[4]==0x3a&&b[5]==0x2f&&b[6]==0x2f)||(b.length>=8&&b[0]==0x68&&b[1]==0x74&&b[2]==0x74&&b[3]==0x70&&b[4]==0x73&&b[5]==0x3a&&b[6]==0x2f&&b[7]==0x2f);}
     function _checkCaseRef(string memory ref) internal pure {bytes memory b=bytes(ref);if(b.length<1||b.length>64)revert InvalidCaseRef();for(uint256 i;i<b.length;i++){bytes1 c=b[i];if(!((c>=0x30&&c<=0x39)||(c>=0x41&&c<=0x5A)||c==0x2D))revert InvalidCaseRef();}}
     function _page(uint256[] storage src,uint256 offset,uint256 limit) internal view returns(uint256[] memory out,uint256 total){if(limit<1||limit>50)revert InvalidPage();total=src.length;if(offset>=total)return(new uint256[](0),total);uint256 end=offset+limit;if(end<offset)end=total;if(end>total)end=total;out=new uint256[](end-offset);for(uint256 i;i<out.length;i++)out[i]=src[offset+i];}
     function _userWorkKey(address a,uint256 w) internal pure returns(bytes32){return keccak256(abi.encode(a,w));}

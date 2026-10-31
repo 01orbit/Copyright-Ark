@@ -5,8 +5,8 @@
     "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
     "deploymentBlock": "4",
     "deploymentTxHash": "",
-    "runtimeCodeHash": "0x3ee2972b0715dc7facf9c36a01526b7c9b861dc84227542ffa388a03878fc71d",
-    "deployedAt": "2026-10-31T04:49:22.258Z",
+    "runtimeCodeHash": "0xef525729e2adfd2c09a24d25924e55145150d1b400dc9bedd822277d65e4580d",
+    "deployedAt": "2026-10-31T10:12:39.147Z",
     "termsVersion": "CopyrightLicenseTerms/v1"
   }
 }

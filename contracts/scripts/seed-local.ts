@@ -22,7 +22,7 @@ if (!admin || !seller) throw new Error("本地链没有足够的测试钱包。"
 const market = await viem.deployContract("CopyrightMarket", [admin.account.address, 100000000000000n, 50000000000000n]);
 await market.write.fundRewardPool({value: 10000000000000000n});
 const hash = `0x${"11".repeat(32)}` as `0x${string}`;
-await market.write.registerWork([hash,"示例城市海报","课堂演示作品",1,0],{account:seller.account});
+await market.write.registerWork([hash,"示例城市海报","课堂演示作品",1,"https://example.com/poster"],{account:seller.account});
 const now = BigInt(Math.floor(Date.now()/1000));
 await market.write.createOffer([1,1000000000000000n,7n*24n*60n*60n,200000000000000n,now+86400n,"仅限课堂展示和非商业研究"],{account:seller.account,value:1200000000000000n});
 const block = await publicClient.getBlock({includeTransactions:true});

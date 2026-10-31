@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button, Card, Chip } from "@heroui/react";
 import { useReadContract, useReadContracts } from "wagmi";
-import { categories, formatDate, shorten } from "../domain";
+import { categories, formatDate, safeReferenceUrl, shorten } from "../domain";
 import { abi, useMarket } from "../market";
 import {
   CheckField,
@@ -12,7 +12,6 @@ import {
   Notice,
   PageHeading,
 } from "../components/ui";
-import WorkCover from "../components/WorkCover";
 
 export default function Discover() {
   const { t, locale } = useLanguage();
@@ -106,23 +105,31 @@ export default function Discover() {
         <EmptyState>{t("暂无匹配作品，请调整搜索词或类别。")}</EmptyState>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {works.map((work) => (
-            <Link
-              key={String(work.id)}
-              to={`/works/${work.id}`}
-              className="group min-w-0"
-            >
-              <Card className="gap-0 overflow-hidden border border-border p-0 shadow-none transition-shadow group-hover:shadow-lg group-hover:shadow-accent/10">
-                <WorkCover work={work} category={work.category} className="aspect-[4/3] w-full border-x-0 border-t-0" />
+          {works.map((work) => {
+            const referenceUrl = safeReferenceUrl(work.referenceUrl);
+            return (
+              <Card key={String(work.id)} className="min-w-0 gap-0 overflow-hidden border border-border p-0 shadow-none transition-shadow hover:shadow-lg hover:shadow-accent/10">
                 <div className="space-y-4 p-5">
                   <div className="flex items-center justify-between gap-2 text-xs text-muted">
                     <Chip size="sm" variant="soft">{t(categories[work.category])}</Chip>
                     <span className="font-mono">#{String(work.id).padStart(3, "0")}</span>
                   </div>
-                  <h2 className="truncate text-lg font-semibold transition-colors group-hover:text-accent">{work.title}</h2>
+                  <h2 className="truncate text-lg font-semibold">
+                    <Link to={`/works/${work.id}`} className="transition-colors hover:text-accent">{work.title}</Link>
+                  </h2>
                   <p className="line-clamp-2 min-h-10 break-words text-sm leading-5 text-muted">
                     {work.description || t("暂无简介")}
                   </p>
+                  {referenceUrl && (
+                    <a
+                      href={referenceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block text-sm text-accent underline underline-offset-2"
+                    >
+                      {t("打开参考链接")} ↗
+                    </a>
+                  )}
                   <div className="flex items-center justify-between border-t border-border/50 pt-4 text-xs">
                     <span className="text-muted">
                       {shorten(work.registrant)}
@@ -142,8 +149,8 @@ export default function Discover() {
                   </time>
                 </div>
               </Card>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </>

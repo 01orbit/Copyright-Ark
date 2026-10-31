@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatEth, parseEthSafe, utf8Bytes, validateFile } from "./domain";
+import { formatEth, normalizeReferenceUrl, parseEthSafe, safeReferenceUrl, utf8Bytes, validateFile, validateReferenceUrl } from "./domain";
 
 describe("domain validation", () => {
   it("keeps ETH values exact through bigint parsing", () => {
@@ -15,5 +15,15 @@ describe("domain validation", () => {
     expect(
       validateFile(new File([new Uint8Array(21 * 1024 * 1024)], "demo.png")),
     ).toContain("20 MiB");
+  });
+  it("accepts optional public HTTP(S) references and rejects unsafe or oversized URLs", () => {
+    expect(validateReferenceUrl("")).toBe("");
+    expect(validateReferenceUrl("https://example.com/work")).toBe("");
+    expect(validateReferenceUrl("javascript:alert(1)")).not.toBe("");
+    expect(validateReferenceUrl(`https://example.com/${"a".repeat(250)}`)).not.toBe("");
+    expect(safeReferenceUrl("javascript:alert(1)")).toBeUndefined();
+    expect(normalizeReferenceUrl(" HTTPS://Example.com/work ")).toBe("https://example.com/work");
+    expect(normalizeReferenceUrl("https://例子.测试/作品")).toContain("xn--");
+    expect(normalizeReferenceUrl(`https://example.com/${"作品".repeat(40)}`)!.length).toBeGreaterThan(256);
   });
 });

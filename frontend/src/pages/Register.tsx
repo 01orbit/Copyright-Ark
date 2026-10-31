@@ -5,10 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import type { Hash } from "viem";
 import { usePublicClient } from "wagmi";
-import { coverApi, setCoverDraft } from "../covers/client";
-import { generateCover } from "../covers/generate";
-import { useBlobUrl } from "../covers/useBlobUrl";
-import { categories, hashFile, utf8Bytes, validateFile } from "../domain";
+import { categories, hashFile, normalizeReferenceUrl, utf8Bytes, validateFile, validateReferenceUrl } from "../domain";
 import { abi, useMarket, useTransaction } from "../market";
 import {
   CheckField,
@@ -31,14 +28,11 @@ export default function Register() {
   const selection = useRef(0);
   const [file, setFile] = useState<File>();
   const [hash, setHash] = useState<Hash>();
-  const [cover, setCover] = useState<Blob>();
-  const [generating, setGenerating] = useState(false);
-  const [coverMessage, setCoverMessage] = useState("");
-  const preview = useBlobUrl(cover);
   const client = usePublicClient({ chainId });
   const [fileMessage, setFileMessage] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [referenceUrl, setReferenceUrl] = useState("");
   const [category, setCategory] = useState(1);
   const [agree, setAgree] = useState(false);
   const {
@@ -61,17 +55,15 @@ export default function Register() {
     title.trim() &&
     utf8Bytes(title.trim()) <= 96 &&
     utf8Bytes(description.trim()) <= 512 &&
+    !validateReferenceUrl(referenceUrl) &&
     agree &&
     existingId === 0n &&
-    !isFetching && !generating;
+    !isFetching;
 
   async function choose(nextFile?: File) {
     const current = ++selection.current;
     setFile(nextFile);
     setHash(undefined);
-    setCover(undefined);
-    setGenerating(false);
-    setCoverMessage("");
     const error = validateFile(nextFile);
     setFileMessage(error || "正在计算文件指纹…");
     if (error || !nextFile) return;
@@ -80,24 +72,8 @@ export default function Register() {
       if (current !== selection.current) return;
       setHash(result);
       setFileMessage("文件指纹已生成");
-      if (coverApi) {
-        setGenerating(true);
-        setCoverMessage("正在生成封面…");
-        try {
-          const cover = await generateCover(nextFile);
-          if (current !== selection.current) return;
-          setCover(cover);
-          setCoverDraft(result, cover);
-          setCoverMessage("登记成功后，可在作品详情页发布封面。");
-        } catch {
-          if (current === selection.current) setCoverMessage("无法生成封面，请检查文件格式、损坏或加密情况。");
-        } finally {
-          if (current === selection.current) setGenerating(false);
-        }
-      }
     } catch {
-      if (current === selection.current)
-        setFileMessage("读取文件失败，请重新选择");
+      if (current === selection.current) setFileMessage("读取文件失败，请重新选择");
     }
   }
 
@@ -109,7 +85,7 @@ export default function Register() {
         abi,
         functionName: "registerWork",
         chainId,
-        args: [hash, title.trim(), description.trim(), category, 0],
+        args: [hash, title.trim(), description.trim(), category, normalizeReferenceUrl(referenceUrl) || ""],
       }),
     );
     if (success && client) {
@@ -157,8 +133,6 @@ export default function Register() {
             </div>
           </div>
           <Notice>{fileMessage}</Notice>
-          {preview && <img src={preview} alt={t("待发布封面预览")} className="h-64 w-full rounded-xl border border-border bg-background object-contain" />}
-          <Notice>{coverMessage}</Notice>
           {hash && (
             <div className="space-y-2 text-sm">
               <p className="text-muted">{t("文件 SHA-256")}</p>
@@ -214,6 +188,17 @@ export default function Register() {
                 label: t(name),
               }))}
             />
+          </Field>
+          <Field label={t("作品参考链接（可选）")} hint={t("{count} / {limit} 个字符；链接将公开写入区块链。", { count: normalizeReferenceUrl(referenceUrl)?.length ?? referenceUrl.length, limit: 256 })}>
+            <FormInput
+              className="w-full"
+              type="url"
+              value={referenceUrl}
+              maxLength={256}
+              placeholder="https://example.com/work"
+              onChange={(event) => setReferenceUrl(event.target.value)}
+            />
+            {validateReferenceUrl(referenceUrl) && <Notice>{t(validateReferenceUrl(referenceUrl))}</Notice>}
           </Field>
           <CheckField isSelected={agree} onChange={setAgree}>
             {t(

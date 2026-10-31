@@ -52,6 +52,29 @@ export function validateFile(file?: File) {
   return extension && allowed.includes(extension) ? "" : "暂不支持该文件格式";
 }
 
+export function validateReferenceUrl(value: string) {
+  if (!value.trim()) return "";
+  const normalized = normalizeReferenceUrl(value);
+  if (!normalized || normalized.length > 256) return "参考链接须为有效的 HTTP(S) 地址，且不超过 256 个字符";
+  return "";
+}
+
+export function normalizeReferenceUrl(value: string) {
+  if (!value.trim()) return "";
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return undefined;
+    return parsed.href;
+  } catch {
+    return undefined;
+  }
+}
+
+export function safeReferenceUrl(value: string) {
+  const normalized = normalizeReferenceUrl(value);
+  return normalized && normalized.length <= 256 ? normalized : undefined;
+}
+
 export const offerStatusLabel = (status: number) =>
   ["不存在", "可接受", "已成交", "卖家取消", "已到期", "作品已撤销"][status] ||
   "未知";

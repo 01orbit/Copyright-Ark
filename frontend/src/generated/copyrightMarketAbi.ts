@@ -77,11 +77,6 @@ export const copyrightMarketAbi = [
   },
   {
     "inputs": [],
-    "name": "InvalidCover",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "InvalidDuration",
     "type": "error"
   },
@@ -93,6 +88,11 @@ export const copyrightMarketAbi = [
   {
     "inputs": [],
     "name": "InvalidPage",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidReferenceUrl",
     "type": "error"
   },
   {
@@ -1573,9 +1573,9 @@ export const copyrightMarketAbi = [
             "type": "uint8"
           },
           {
-            "internalType": "uint8",
-            "name": "coverId",
-            "type": "uint8"
+            "internalType": "string",
+            "name": "referenceUrl",
+            "type": "string"
           },
           {
             "internalType": "uint64",
@@ -2003,9 +2003,9 @@ export const copyrightMarketAbi = [
         "type": "uint8"
       },
       {
-        "internalType": "uint8",
-        "name": "coverId",
-        "type": "uint8"
+        "internalType": "string",
+        "name": "referenceUrl",
+        "type": "string"
       }
     ],
     "name": "registerWork",

@@ -10,8 +10,12 @@ describe("CopyrightMarket", async () => {
   const market = await viem.deployContract("CopyrightMarket", [admin.account.address, 100000000000000n, 50000000000000n]);
   const hash = `0x${"12".repeat(32)}` as `0x${string}`;
   it("registers, prevents duplicate active hash and creates a deposit-backed offer", async () => {
-    await market.write.registerWork([hash,"Test Work","Description",1,0],{account:seller.account});
-    await assert.rejects(() => market.write.registerWork([hash,"Another","",1,0],{account:buyer.account}));
+    await market.write.registerWork([hash,"Test Work","Description",1,"https://example.com/work"],{account:seller.account});
+    const work = await market.read.getWork([1n]);
+    assert.equal(work.referenceUrl, "https://example.com/work");
+    await assert.rejects(() => market.write.registerWork([hash,"Another","",1,""] ,{account:buyer.account}));
+    await assert.rejects(() => market.write.registerWork([`0x${"13".repeat(32)}` as `0x${string}`,"Long URL","",1,"x".repeat(257)],{account:buyer.account}));
+    await assert.rejects(() => market.write.registerWork([`0x${"14".repeat(32)}` as `0x${string}`,"Unsafe URL","",1,"javascript:alert(1)"],{account:buyer.account}));
     const now = BigInt(Math.floor(Date.now()/1000));
     await market.write.createOffer([1,parseEther("0.001"),3600n,parseEther("0.0002"),now+3600n,"research"],{account:seller.account,value:parseEther("0.0012")});
     assert.equal(await market.read.totalLockedDeposits(),parseEther("0.0012"));
@@ -29,7 +33,7 @@ describe("CopyrightMarket", async () => {
   });
   it("keeps case reward separate from license funds", async () => {
     const hash2=`0x${"34".repeat(32)}` as `0x${string}`;
-    await market.write.registerWork([hash2,"Case Work","",2,1],{account:other.account});
+    await market.write.registerWork([hash2,"Case Work","",2,""],{account:other.account});
     await market.write.openCase([2,"CASE-2026-0001",`0x${"56".repeat(32)}` as `0x${string}`],{account:admin.account});
     await market.write.resolveCase([1,2,`0x${"78".repeat(32)}` as `0x${string}`,"违规登记"],{account:admin.account});
     assert.equal(await market.read.pendingCaseRewards(),150000000000000n);

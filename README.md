@@ -8,13 +8,11 @@
 
 - `contracts/`：Hardhat 3 + Solidity 0.8.28 + OpenZeppelin 5 合约工程。
 - `frontend/`：Vite + React + TypeScript + Wagmi/Viem，使用 Tailwind CSS 4 + HeroUI 3。
-- `cover-worker/`：可选的 Cloudflare Worker + R2 共享封面服务。
-- `shared/`：前端与封面服务共用的上传协议。
 - `docs/`：规划书、标准许可条款和交付说明。
 
 Node 基线写在 `.nvmrc`（当前验证版本：Node 24.15.0）。合约与前端独立构建，前端只读取 `src/generated/` 中导出的 ABI。
 
-准备让助教直接通过网址测试时，按 [Cloudflare 首次部署教程](docs/DEPLOY-CLOUDFLARE.md) 操作；教程先部署 Pages 和封面服务，再测本地链，最后切换到 Sepolia。
+准备让助教直接通过网址测试时，按 [Cloudflare 首次部署教程](docs/DEPLOY-CLOUDFLARE.md) 操作；部署 Pages 后可先测本地链，再切换到 Sepolia。
 
 ## 本地链快速运行
 
@@ -109,11 +107,7 @@ npm run dev --prefix frontend
 
 界面使用 Tailwind CSS 4 + HeroUI 3，采用灰白与蓝色点缀。按钮、卡片、标签、输入框、下拉框、复选框、折叠条款和弹窗统一使用 HeroUI 组件；`src/components/ui.tsx` 提供少量共享表单包装，页面里仍然就地保留字段含义和布局。布局和间距直接写 Tailwind 类，不另建样式系统。
 
-前端阅读顺序：`src/App.tsx` 查看路由，`src/pages/` 查看各页；`src/components/` 复用导航、表单外壳和挂单组件；`src/market.tsx` 集中处理合约类型、网络选择与交易确认。`src/styles.css` 仅保留库的导入、主题变量和少量基础控件样式。首页使用独立品牌插画；发现和详情共用 `WorkCover` 大尺寸封面，发现页为上图下文卡片，详情页为大图与作品信息并排，窄屏自动上下排列。封面等比例完整显示，没有封面时按文件类型显示小图标；平台不保存原始作品文件。
-
-### 可选：Cloudflare 共享封面
-
-图片生成缩略图、PDF 取首页、TXT 取开头、视频取画面、音频取波形。封面单独存入 R2，合约无需修改，不增加上链成本。未设置 `VITE_COVER_API_URL` 时继续使用类型图标。完整的本地测试、Worker/R2 和 Pages 配置见 [共享封面部署指南](docs/CLOUDFLARE-COVERS.md)。
+前端阅读顺序：`src/App.tsx` 查看路由，`src/pages/` 查看各页；`src/components/` 复用导航、表单外壳和挂单组件；`src/market.tsx` 集中处理合约类型、网络选择与交易确认。`src/styles.css` 仅保留库的导入、主题变量和少量基础控件样式。作品列表使用紧凑的文字卡片；登记人可以填写可选 HTTP(S) 参考链接，链接作为公开字段写入合约。平台不保存或展示作品封面，也不保存原始作品文件。
 
 - `/`：独立首页，仅显示项目介绍和“进入”按钮，不显示导航和页脚。
 - `/discover`：最新作品、标题搜索、类别筛选和已撤销开关；业务页面左上角 Logo 返回首页。
@@ -128,7 +122,7 @@ npm run dev --prefix frontend
 
 ### 链上数据边界
 
-作品登记、作品标题与简介、文件哈希、授权挂单、许可记录、案件处理、余额和提现都由 `CopyrightMarket` 合约保存或执行；前端通过当前网络的 RPC 读取，交易由 MetaMask 签名。原始作品文件仍只在浏览器中计算 SHA-256，不上传也不写入合约，因为把文件字节直接存入 Sepolia 会产生很高的 Gas 成本。语言选择和开发者菜单中的测试地址属于浏览器辅助配置，不是业务数据。
+作品登记、作品标题与简介、参考链接、文件哈希、授权挂单、许可记录、案件处理、余额和提现都由 `CopyrightMarket` 合约保存或执行；前端通过当前网络的 RPC 读取，交易由 MetaMask 签名。参考链接和作品元数据都是公开的链上数据，不要填写私人地址或访问令牌。原始作品文件只在浏览器中计算 SHA-256，不上传也不写入合约。语言选择和开发者菜单中的测试地址属于浏览器辅助配置，不是业务数据。
 
 ### 开发者测试菜单
 
@@ -145,10 +139,9 @@ npm run dev --prefix frontend
 已在本环境完成：
 
 - `npm run build --prefix contracts`：Solidity 编译通过，启用 IR 优化后部署字节码低于 EIP-170 限制。
-- `npm test --prefix contracts`：登记去重、押金挂单、接受、作者提前撤销分账、案件费用池隔离，共 3 个测试通过。
+- `npm test --prefix contracts`：登记、参考链接校验、押金挂单、接受、作者提前撤销分账、案件费用池隔离，共 3 个测试通过。
 - `npm run build --prefix frontend`：TypeScript 检查和 Vite 生产构建通过。
-- `npm test --prefix frontend -- --run`：共 12 项测试通过，覆盖业务计算和测试地址配置的验证、多地址兼容、持久化、网络隔离、恢复默认与损坏数据回退。
-- `npm test --prefix cover-worker`：7 项上传协议与权限测试通过；`npm run build --prefix cover-worker` 打包预检通过。另完成 Hardhat 与本地 R2 的签名上传、公开读取联调，以及浏览器中的多种文件封面生成检查；详细边界见共享封面部署指南。
+- `npm test --prefix frontend -- --run`：共 13 项测试通过，覆盖业务计算、参考链接校验和测试地址配置。
 - PublicNode Sepolia 只读检查成功（2026-10-30，Chain ID `11155111`）；隔离本地链验证部署回执、地址导出保留其他网络、缺少私钥时拒绝部署均通过。
 - Hardhat 本地节点真实部署和前端样例联调已成功；本地地址由每次部署脚本输出（本地节点重启后会变化，不能用于 Sepolia）。
 

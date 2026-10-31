@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Button, Chip } from "@heroui/react";
 import { useReadContract, useReadContracts } from "wagmi";
-import { categories, formatDate, shorten } from "../domain";
+import { categories, formatDate, safeReferenceUrl, shorten } from "../domain";
 import { abi, useMarket } from "../market";
 import {
   EmptyState,
@@ -13,8 +13,6 @@ import {
   Panel,
 } from "../components/ui";
 import { OfferCard, OfferModal } from "../components/Offers";
-import WorkCover from "../components/WorkCover";
-import CoverUpload from "../components/CoverUpload";
 
 export default function WorkDetail() {
   const { t, locale } = useLanguage();
@@ -22,7 +20,6 @@ export default function WorkDetail() {
   const workId = /^\d+$/.test(id) ? BigInt(id) : 0n;
   const { address, chainId } = useMarket();
   const [showOfferForm, setShowOfferForm] = useState(false);
-  const [coverVersion, setCoverVersion] = useState(0);
   const {
     data: work,
     isLoading,
@@ -68,14 +65,14 @@ export default function WorkDetail() {
   if (error) return <Notice>{t("作品读取失败，请检查网络。")}</Notice>;
   if (isLoading) return <EmptyState>{t("正在读取作品…")}</EmptyState>;
   if (!work?.id) return <EmptyState>{t("未找到该作品。")}</EmptyState>;
+  const referenceUrl = safeReferenceUrl(work.referenceUrl);
 
   return (
     <>
       <Link className="link text-sm text-muted" to="/discover">
         {t("← 返回发现")}
       </Link>
-      <section className="grid items-start gap-6 lg:grid-cols-[1fr_1.2fr] lg:gap-10">
-        <WorkCover key={`${chainId}:${address}:${id}:${coverVersion}`} work={work} category={work.category} className="aspect-[4/3] w-full rounded-2xl" />
+      <section className="max-w-4xl">
         <div className="min-w-0 w-full space-y-5">
           <div className="flex flex-wrap gap-2">
             <Chip variant="soft" size="sm">
@@ -96,6 +93,16 @@ export default function WorkDetail() {
           <PageHeading title={work.title}>
             {work.description || t("暂无简介")}
           </PageHeading>
+          {referenceUrl ? (
+            <p className="text-sm">
+              <span className="mr-2 text-muted">{t("作品参考链接")}</span>
+              <a href={referenceUrl} target="_blank" rel="noopener noreferrer" className="break-all text-accent underline underline-offset-2">
+                {work.referenceUrl}
+              </a>
+            </p>
+          ) : work.referenceUrl ? (
+            <p className="break-all text-sm text-muted">{t("作品参考链接")}: {work.referenceUrl}</p>
+          ) : null}
           <div className="flex items-center gap-3 border-t border-border/60 pt-6">
             <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent/10 font-serif text-lg text-accent">
               ©
@@ -122,7 +129,6 @@ export default function WorkDetail() {
           </p>
         </div>
       </section>
-      <CoverUpload key={`${chainId}:${address}:${id}`} work={work} onUploaded={() => setCoverVersion((value) => value + 1)} />
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_1.5fr]">
         <Panel title={t("链上存证")}>
           <Facts

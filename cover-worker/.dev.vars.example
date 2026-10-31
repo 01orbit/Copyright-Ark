@@ -1,3 +1,0 @@
-# 仅供 wrangler dev；生产环境用 wrangler secret put LOCAL_UPLOAD_TOKEN 设置。
-ENABLE_LOCAL_UPLOADS=true
-LOCAL_UPLOAD_TOKEN=replace-with-a-long-random-test-token
