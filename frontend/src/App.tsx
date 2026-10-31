@@ -6,6 +6,7 @@ import { useLanguage } from "./i18n";
 const Landing = lazy(() => import("./Landing"));
 const Discover = lazy(() => import("./pages/Discover"));
 const Register = lazy(() => import("./pages/Register"));
+const Offers = lazy(() => import("./pages/Offers"));
 const WorkDetail = lazy(() => import("./pages/WorkDetail"));
 const Verify = lazy(() => import("./pages/Verify"));
 const Account = lazy(() => import("./pages/Account"));
@@ -36,6 +37,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/discover" element={<Discover />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/offers" element={<Offers />} />
           <Route path="/works/:id" element={<WorkDetail />} />
           <Route path="/verify" element={<Verify />} />
           <Route path="/account" element={<Account />} />

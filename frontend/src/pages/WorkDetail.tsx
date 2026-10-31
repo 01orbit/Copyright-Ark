@@ -1,6 +1,6 @@
 import { useLanguage } from "../i18n";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button, Chip } from "@heroui/react";
 import { useReadContract, useReadContracts } from "wagmi";
 import { categories, formatDate, safeReferenceUrl, shorten } from "../domain";
@@ -16,6 +16,7 @@ import { OfferCard, OfferModal } from "../components/Offers";
 
 export default function WorkDetail() {
   const { t, locale } = useLanguage();
+  const navigate = useNavigate();
   const { id = "" } = useParams();
   const workId = /^\d+$/.test(id) ? BigInt(id) : 0n;
   const { address, chainId } = useMarket();
@@ -68,10 +69,14 @@ export default function WorkDetail() {
   const referenceUrl = safeReferenceUrl(work.referenceUrl);
 
   return (
-    <>
-      <Link className="link text-sm text-muted" to="/discover">
+    <div className="space-y-8 pb-12">
+      <Button
+        size="sm"
+        variant="outline"
+        onPress={() => navigate("/discover")}
+      >
         {t("← 返回发现")}
-      </Link>
+      </Button>
       <section className="max-w-4xl">
         <div className="min-w-0 w-full space-y-5">
           <div className="flex flex-wrap gap-2">
@@ -177,6 +182,6 @@ export default function WorkDetail() {
       {showOfferForm && (
         <OfferModal work={work} onClose={() => setShowOfferForm(false)} />
       )}
-    </>
+    </div>
   );
 }
