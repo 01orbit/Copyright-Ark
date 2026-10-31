@@ -1,7 +1,7 @@
 import { useLanguage } from "../i18n";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button, Chip } from "@heroui/react";
-import { useReadContract, useReadContracts } from "wagmi";
+import { useReadContract } from "wagmi";
 import { categories, formatDate, safeReferenceUrl, shorten } from "../domain";
 import { abi, useMarket } from "../market";
 import {
@@ -11,7 +11,7 @@ import {
   PageHeading,
   Panel,
 } from "../components/ui";
-import { OfferCard } from "../components/Offers";
+import { WorkLicensing } from "../components/WorkLicensing";
 
 export default function WorkDetail() {
   const { t, locale } = useLanguage();
@@ -31,35 +31,6 @@ export default function WorkDetail() {
     args: [workId],
     query: { enabled: !!address && workId > 0n },
   });
-  const { data: offerIds } = useReadContract({
-    address,
-    abi,
-    functionName: "getOfferIdsByWork",
-    chainId,
-    args: [workId, 0n, 50n],
-    query: { enabled: !!address && workId > 0n },
-  });
-  const ids = offerIds?.[0] ?? [];
-  const {
-    data: results,
-    isLoading: loadingOffers,
-    error: offersError,
-  } = useReadContracts({
-    contracts: ids.map(
-      (id) =>
-        ({
-          address: address!,
-          abi,
-          functionName: "getOffer",
-          chainId,
-          args: [id],
-        }) as const,
-    ),
-    query: { enabled: !!address && ids.length > 0 },
-  });
-  const offers = (results ?? []).flatMap((result) =>
-    result.result ? [result.result] : [],
-  );
 
   if (error) return <Notice>{t("作品读取失败，请检查网络。")}</Notice>;
   if (isLoading) return <EmptyState>{t("正在读取作品…")}</EmptyState>;
@@ -132,7 +103,10 @@ export default function WorkDetail() {
           </p>
         </div>
       </section>
-      <div className="grid items-start gap-6 lg:grid-cols-[1fr_1.5fr]">
+      <div className="grid items-start gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <Panel title={t("使用许可")}>
+          <WorkLicensing key={`${chainId}-${address}-${work.id}`} work={work} />
+        </Panel>
         <Panel title={t("链上存证")}>
           <Facts
             items={[
@@ -148,22 +122,6 @@ export default function WorkDetail() {
               ],
             ]}
           />
-        </Panel>
-        <Panel title={t("使用许可")}>
-          <p className="text-sm text-muted">
-            {t("选择固定条款的授权挂单。")}
-          </p>
-          {offersError ? (
-            <Notice>{t("挂单读取失败，请检查网络。")}</Notice>
-          ) : loadingOffers ? (
-            <EmptyState>{t("正在读取挂单…")}</EmptyState>
-          ) : offers.length ? (
-            offers.map((offer) => (
-              <OfferCard key={String(offer.id)} offer={offer} work={work} />
-            ))
-          ) : (
-            <EmptyState>{t("暂无可接受的授权挂单。")}</EmptyState>
-          )}
         </Panel>
       </div>
     </div>

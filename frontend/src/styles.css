@@ -38,12 +38,17 @@
 }
 
 @layer utilities {
-  .scrollbar-none {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+  .nav-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
   }
 
-  .scrollbar-none::-webkit-scrollbar {
-    display: none;
+  .nav-scrollbar::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .nav-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 999px;
   }
 }

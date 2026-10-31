@@ -34,6 +34,15 @@ it("formats variable messages and dates without changing user content", () => {
   expect(readLanguage()).toBe("en");
 });
 
+it("defaults to English without a saved preference and remembers an explicit language choice", () => {
+  localStorage.setItem("zhulu:language", "invalid");
+  expect(readLanguage()).toBe("en");
+  localStorage.removeItem("zhulu:language");
+  expect(readLanguage()).toBe("en");
+  localStorage.setItem("zhulu:language", "zh");
+  expect(readLanguage()).toBe("zh");
+});
+
 it("switches live copy and existing messages, preserves drafts, and restores language after reload", async () => {
   function Draft() {
     const { t } = useLanguage();

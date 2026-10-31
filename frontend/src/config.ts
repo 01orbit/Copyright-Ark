@@ -4,6 +4,12 @@ import { injected } from "wagmi/connectors";
 import { sepolia } from "wagmi/chains";
 import type { Address } from "viem";
 import deployments from "./generated/deployments.json";
+import { canUseLocalChain, resolveChain } from "./network-policy";
+
+export const localChainEnabled = canUseLocalChain(
+  window.location.hostname,
+  import.meta.env.CLOUDFLARE_PAGES === "1",
+);
 
 const localRpc = import.meta.env.VITE_LOCAL_RPC_URL || "http://127.0.0.1:8545";
 const sepoliaRpc =
@@ -17,8 +23,9 @@ export const hardhatLocal = defineChain({
   rpcUrls: { default: { http: [localRpc] } },
 });
 
-export const defaultChainId = Number(
-  import.meta.env.VITE_DEFAULT_CHAIN_ID || 11155111,
+export const defaultChainId = resolveChain(
+  Number(import.meta.env.VITE_DEFAULT_CHAIN_ID || 11155111),
+  localChainEnabled,
 );
 export const marketAddresses: Record<number, Address | undefined> = {
   31337: import.meta.env.VITE_LOCAL_MARKET_ADDRESS || records["31337"]?.address,
@@ -27,8 +34,7 @@ export const marketAddresses: Record<number, Address | undefined> = {
 };
 
 export const config = createConfig({
-  // Sepolia is the default business network; Hardhat remains available for local development.
-  chains: [sepolia, hardhatLocal],
+  chains: localChainEnabled ? [sepolia, hardhatLocal] : [sepolia],
   connectors: [injected({ target: "metaMask" })],
   transports: {
     [hardhatLocal.id]: http(localRpc),
@@ -37,5 +43,6 @@ export const config = createConfig({
 });
 
 export function marketAddress(chainId = defaultChainId) {
+  if (!localChainEnabled && chainId !== sepolia.id) return undefined;
   return marketAddresses[chainId];
 }

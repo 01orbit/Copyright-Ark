@@ -21,6 +21,14 @@ export function formatEth(value?: bigint, locale = "zh-CN") {
   return decimals ? `${integer}.${decimals}` : integer;
 }
 
+export function formatDuration(seconds: bigint, locale: string) {
+  const [unit, length]: [string, number] = seconds >= 86400n ? ["day", 86400]
+    : seconds >= 3600n ? ["hour", 3600] : ["minute", 60];
+  return new Intl.NumberFormat(locale, {
+    style: "unit", unit, unitDisplay: "long", maximumFractionDigits: 1,
+  }).format(Number(seconds) / length);
+}
+
 export function parseEthSafe(value: string) {
   try {
     return parseEther(value || "0");

@@ -12,7 +12,7 @@
 
 Node 基线写在 `.nvmrc`（当前验证版本：Node 24.15.0）。合约与前端独立构建，前端只读取 `src/generated/` 中导出的 ABI。
 
-准备让助教直接通过网址测试时，按 [Cloudflare 首次部署教程](docs/DEPLOY-CLOUDFLARE.md) 操作；部署 Pages 后可先测本地链，再切换到 Sepolia。
+准备让助教直接通过网址测试时，按 [Cloudflare 首次部署教程](docs/DEPLOY-CLOUDFLARE.md) 操作；先在本机测试本地链，再部署 Pages 验收 Sepolia。线上版本固定 Sepolia，本机前端才允许切换本地链与 Sepolia。
 
 ## 本地链快速运行
 
@@ -44,7 +44,7 @@ npm ci --prefix frontend
 npm run dev --prefix frontend
 ```
 
-MetaMask 添加网络：RPC `http://127.0.0.1:8545`，Chain ID `31337`，货币符号 `ETH`。只使用 Hardhat 输出的本地测试账户；这些私钥不能用于 Sepolia 或主网。可以运行 `npm run seed:local --prefix contracts` 生成一件示例作品和挂单，但该脚本会部署一份新的合约，需把新地址重新填入 `.env`。
+MetaMask 添加网络：RPC `http://127.0.0.1:8545`，Chain ID `31337`，货币符号 `ETH`。只使用 Hardhat 输出的本地测试账户；这些私钥不能用于 Sepolia 或主网。可以用 `npm run seed:local --prefix contracts` 代替空合约部署，生成 30 件作品、58 笔不同状态的挂单、24 份许可和 3 件案件，其中作品 #1、#25、#26 各有三种常规可接受挂单。然后执行 `npm run export-interface --prefix contracts`；本地合约地址覆盖值留空即可使用导出地址。脚本只允许在本地链运行，同一节点上重复执行会拒绝；不修改链上时间，短期示例按真实时间等待到期。账户、样例编号和验证方法见 [本地样例测试指南](docs/LOCAL-SAMPLES.md)。
 
 ## Sepolia 测试网（PublicNode，无需 Remix）
 
@@ -112,13 +112,16 @@ npm run dev --prefix frontend
 - `/`：独立首页，仅显示项目介绍和“进入”按钮，不显示导航和页脚。
 - `/discover`：最新作品、标题搜索、类别筛选和已撤销开关；业务页面左上角 Logo 返回首页。
 - `/register`：本地文件格式/大小/UTF-8 字节检查、SHA-256 指纹、登记交易。
-- `/works/:id`：作品详情、挂单、接受许可、创建挂单。
+- `/works/:id`：作品详情、可用挂单筛选与分页、接受许可及历史记录。
+- `/offers`：个人挂单、批量创建、撤销挂单及提前终止许可。
 - `/verify`：无需连接钱包即可按地址和 Work ID 查询许可，可指定历史时间。
 - `/account`：可领取余额、锁定押金和提现。
 - `/admin`：管理员录入案件、提交维持/撤销结果，并可注资独立费用池。
 - `/dev`：开发者菜单，可从顶栏进入；任意页面按 `Alt + Shift + D` 也可打开。菜单中的业务网络开关会同步切换所有页面的 RPC、合约地址、链上读取和交易目标；连接钱包时会同时请求 MetaMask 切换网络。
 
 页面右上角提供“EN / 中”语言切换，首次进入默认使用英文。首页和所有业务页面的导航、表单、状态提示、许可条款与开发者菜单都支持中文和英文；选择保存在当前浏览器，刷新页面后继续使用。作品标题、简介和测试地址等用户输入不会因为切换语言而丢失。
+
+作者创建挂单时可输入 1–20 份，批量生成同配置的独立挂单。每份分别锁定押金并请求 MetaMask 确认；中断后可继续剩余份数。作品详情的可接受挂单支持价格、期限及搜索组合筛选，每页 8 条。
 
 ### 链上数据边界
 
@@ -139,9 +142,9 @@ npm run dev --prefix frontend
 已在本环境完成：
 
 - `npm run build --prefix contracts`：Solidity 编译通过，启用 IR 优化后部署字节码低于 EIP-170 限制。
-- `npm test --prefix contracts`：登记、参考链接校验、押金挂单、接受、作者提前撤销分账、案件费用池隔离，共 3 个测试通过。
+- `npm test --prefix contracts`：登记、参考链接校验、押金挂单、接受、作者提前撤销分账、案件费用池隔离，共 6 个测试通过。
 - `npm run build --prefix frontend`：TypeScript 检查和 Vite 生产构建通过。
-- `npm test --prefix frontend -- --run`：共 13 项测试通过，覆盖业务计算、参考链接校验和测试地址配置。
+- `npm test --prefix frontend -- --run`：共 25 项测试通过，覆盖批量发布与中断恢复、挂单筛选分页、网络策略、英文默认语言及业务校验。
 - PublicNode Sepolia 只读检查成功（2026-10-30，Chain ID `11155111`）；隔离本地链验证部署回执、地址导出保留其他网络、缺少私钥时拒绝部署均通过。
 - Hardhat 本地节点真实部署和前端样例联调已成功；本地地址由每次部署脚本输出（本地节点重启后会变化，不能用于 Sepolia）。
 

@@ -45,6 +45,13 @@ export default function Admin() {
     chainId,
     query: { enabled: !!address },
   });
+  const { data: accounting } = useReadContract({
+    address,
+    abi,
+    functionName: "getAccounting",
+    chainId,
+    query: { enabled: !!address },
+  });
   const { writeContractAsync } = useWriteContract();
   const transaction = useTransaction();
   const [workId, setWorkId] = useState("");
@@ -191,6 +198,19 @@ export default function Admin() {
               </Button>
             </Panel>
           </div>
+          <Panel title={t("平台资金概况")}>
+            <p className="text-sm text-muted">{t("以下为全平台合计。")}</p>
+            <Facts
+              items={[
+                [t("合约 ETH 余额"), `${formatEth(accounting?.[0], locale)} ETH`],
+                [t("全平台锁定押金"), `${formatEth(accounting?.[1], locale)} ETH`],
+                [t("用户待领取余额"), `${formatEth(accounting?.[2], locale)} ETH`],
+                [t("案件费用池余额"), `${formatEth(accounting?.[3], locale)} ETH`],
+                [t("待拨付案件报酬"), `${formatEth(accounting?.[4], locale)} ETH`],
+                [t("合约可用盈余"), `${formatEth(accounting?.[5], locale)} ETH`],
+              ]}
+            />
+          </Panel>
           <Panel title={t("案件费用池")}>
             <Facts
               items={[

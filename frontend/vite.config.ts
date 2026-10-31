@@ -4,4 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [tailwindcss(), react()],
+  define: {
+    'import.meta.env.CLOUDFLARE_PAGES': JSON.stringify(process.env.CF_PAGES || ''),
+  },
 });

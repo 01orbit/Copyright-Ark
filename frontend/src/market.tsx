@@ -13,17 +13,20 @@ import {
   useSwitchChain,
 } from "wagmi";
 import type { ContractFunctionReturnType, Hash } from "viem";
-import { defaultChainId, marketAddress } from "./config";
+import { defaultChainId, localChainEnabled, marketAddress } from "./config";
+import { resolveChain, type SupportedChainId } from "./network-policy";
 import { copyrightMarketAbi } from "./generated/copyrightMarketAbi";
 
 export const abi = copyrightMarketAbi;
 export type Work = ContractFunctionReturnType<typeof abi, "view", "getWork">;
 export type Offer = ContractFunctionReturnType<typeof abi, "view", "getOffer">;
+export type License = ContractFunctionReturnType<typeof abi, "view", "getLicense">;
 
-export type SupportedChainId = 31337 | 11155111;
+export type { SupportedChainId } from "./network-policy";
 const chainStorageKey = "copyright-ark:network";
 
 function readStoredChain(): SupportedChainId {
+  if (!localChainEnabled) return 11155111;
   try {
     const stored = Number(localStorage.getItem(chainStorageKey));
     if (stored === 31337 || stored === 11155111) return stored;
@@ -55,7 +58,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const queries = useQueryClient();
 
   const selectChain = useCallback(
-    (nextChainId: SupportedChainId) => {
+    (requestedChainId: SupportedChainId) => {
+      const nextChainId = resolveChain(requestedChainId, localChainEnabled);
       setChainId(nextChainId);
       try {
         localStorage.setItem(chainStorageKey, String(nextChainId));

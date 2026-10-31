@@ -1,13 +1,14 @@
 import { useLanguage } from "../i18n";
 import { Button } from "@heroui/react";
+import { useEffect, useRef } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import {
   useAccount,
-  useChainId,
   useConnect,
   useDisconnect,
 } from "wagmi";
 import { shorten } from "../domain";
+import { localChainEnabled } from "../config";
 import { useMarket, useNetwork } from "../market";
 import { FormSelect, Notice } from "./ui";
 import Brand from "./Brand";
@@ -28,13 +29,13 @@ export function WalletButton() {
   const { address, isConnected } = useAccount();
   const { connect, connectors, error, isPending } = useConnect();
   const { disconnect } = useDisconnect();
-  const chainId = useChainId();
+  const { chainId, walletChainId } = useMarket();
   const { selectChain, switching, switchError } = useNetwork();
   return (
     <div className="flex flex-wrap items-center gap-2">
       {isConnected ? (
         <>
-          <FormSelect
+          {localChainEnabled ? <FormSelect
             label={t("钱包网络")}
             className="w-32"
             value={String(chainId)}
@@ -46,7 +47,11 @@ export function WalletButton() {
               { value: "31337", label: t("本地链") },
               { value: "11155111", label: "Sepolia" },
             ]}
-          />
+          /> : walletChainId !== 11155111 ? (
+            <Button size="sm" variant="outline" isDisabled={switching} onPress={() => selectChain(11155111)}>
+              {t("切换到 Sepolia")}
+            </Button>
+          ) : <span className="text-xs text-muted">Sepolia</span>}
           <Button
             size="sm"
             variant="outline"
@@ -77,10 +82,25 @@ export function WalletButton() {
 export default function Layout() {
   const { t } = useLanguage();
   const { address, walletReady } = useMarket();
+  const navigationRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = navigationRef.current;
+    if (!nav) return;
+    const scrollMenu = (event: WheelEvent) => {
+      if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+      const distance = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? nav.clientWidth : 1);
+      const next = Math.max(0, Math.min(nav.scrollWidth - nav.clientWidth, nav.scrollLeft + distance));
+      if (next === nav.scrollLeft) return;
+      event.preventDefault();
+      nav.scrollLeft = next;
+    };
+    nav.addEventListener("wheel", scrollMenu, { passive: false });
+    return () => nav.removeEventListener("wheel", scrollMenu);
+  }, []);
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-6 pt-4 2xl:flex-nowrap 2xl:pt-0">
+      <header className="border-b border-border bg-surface py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-6 lg:flex-nowrap">
           <Link
             to="/"
             aria-label={t("Copyright Ark 首页 · 版权管理平台")}
@@ -88,27 +108,27 @@ export default function Layout() {
           >
             <Brand />
           </Link>
-          <nav
-            aria-label={t("主导航")}
-            className="scrollbar-none order-last flex w-full min-w-0 gap-1 overflow-x-auto overflow-y-hidden 2xl:order-none 2xl:w-auto 2xl:flex-1"
-          >
-            {navigation.map(([path, label]) => (
-              <NavLink
-                key={path}
-                to={path}
-                className={({ isActive }) =>
-                  `shrink-0 border-b-2 px-3 py-4 text-sm font-medium transition-colors xl:py-5 ${
-                    isActive
-                      ? "border-current"
-                      : "border-transparent"
-                  } ${path === "/dev" ? "text-violet-700 hover:text-violet-800" : isActive ? "text-accent" : "text-muted hover:text-foreground"}`
-                }
-              >
-                {t(label)}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+          {/* 滚动条延伸到导航行下方，不占用菜单的垂直居中空间。 */}
+          <div className="relative order-last h-9 w-full min-w-0 lg:order-none lg:w-auto lg:flex-1">
+            <nav
+              ref={navigationRef}
+              aria-label={t("主导航")}
+              className="nav-scrollbar absolute inset-x-0 top-0 -bottom-2.5 flex items-start gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain"
+            >
+              {navigation.map(([path, label]) => (
+                <NavLink
+                  key={path}
+                  to={path}
+                  className={({ isActive }) =>
+                    `flex h-9 shrink-0 items-center px-3 text-base font-medium transition-colors ${path === "/dev" ? "text-violet-700 hover:text-violet-800" : isActive ? "text-accent" : "text-muted hover:text-foreground"}`
+                  }
+                >
+                  {t(label)}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
+          <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-3">
             <LanguageSwitch />
             <WalletButton />
           </div>

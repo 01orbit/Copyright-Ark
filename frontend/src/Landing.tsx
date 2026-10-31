@@ -17,18 +17,17 @@ export default function Landing() {
         className="mx-auto grid w-full max-w-6xl items-center gap-12 md:grid-cols-2 lg:gap-20"
         aria-label={t("Copyright Ark · 版权管理平台")}
       >
-        <div className="space-y-9">
+        <div className="space-y-7">
           <Brand />
-          <h1 className="text-4xl leading-[1.45] font-medium tracking-tight lg:text-5xl xl:text-6xl">
+          <h1 className="text-4xl leading-[1.15] font-medium tracking-tight lg:text-5xl xl:text-6xl">
             {t("作品是你的，")}
             <br />
             <span className="text-accent">{t("授权也由你决定。")}</span>
           </h1>
-          <p className="max-w-sm text-base leading-8 text-muted">
-            {t("登记作品、设置授权条件、查询使用记录。")}
-            <br />
-            {t("连接钱包就能开始，原文件留在你手里。")}
-          </p>
+          <div className="max-w-sm space-y-2 text-base leading-relaxed text-muted">
+            <p>{t("登记作品、设置授权条件、查询使用记录。")}</p>
+            <p>{t("连接钱包就能开始，原文件留在你手里。")}</p>
+          </div>
           <Button
             size="lg"
             className="gap-6 px-8"

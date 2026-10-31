@@ -3,7 +3,7 @@ import { Button, Chip, Switch } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAccount, useReadContract } from "wagmi";
-import { marketAddress } from "../config";
+import { localChainEnabled, marketAddress } from "../config";
 import { abi, useMarket, useNetwork } from "../market";
 import {
   Field,
@@ -73,7 +73,7 @@ export default function Developer() {
         )}
       </PageHeading>
       <Panel title={t("当前业务网络")}>
-        <Switch
+        {localChainEnabled ? <Switch
           isSelected={chainId === 31337}
           isDisabled={switching}
           onChange={(local) => selectChain(local ? 31337 : 11155111)}
@@ -87,10 +87,12 @@ export default function Developer() {
               {chainId === 31337 ? t("本地链") : "Sepolia"}
             </span>
           </Switch.Content>
-        </Switch>
+        </Switch> : <Chip size="sm" variant="soft">Sepolia</Chip>}
         <p className="text-sm leading-relaxed text-muted">
           {t(
-            "切换后，发现、登记、授权、查询、账户和管理台都会读取并操作所选网络的合约。",
+            localChainEnabled
+              ? "切换后，发现、登记、授权、查询、账户和管理台都会读取并操作所选网络的合约。"
+              : "线上版本固定使用 Sepolia。本地链测试请在本机启动前端。",
           )}
         </p>
         {isConnected && walletChainId !== chainId && (

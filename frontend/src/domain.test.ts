@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { formatEth, normalizeReferenceUrl, parseEthSafe, safeReferenceUrl, utf8Bytes, validateFile, validateReferenceUrl } from "./domain";
+import { formatDuration, formatEth, normalizeReferenceUrl, parseEthSafe, safeReferenceUrl, utf8Bytes, validateFile, validateReferenceUrl } from "./domain";
 
 describe("domain validation", () => {
   it("keeps ETH values exact through bigint parsing", () => {
     expect(parseEthSafe("0.0012")).toBe(1200000000000000n);
     expect(formatEth(1200000000000000n)).toBe("0.0012");
+  });
+  it("shows short licenses in human-readable time units", () => {
+    expect(formatDuration(3600n, "en-US")).toBe("1 hour");
+    expect(formatDuration(60n, "en-US")).toBe("1 minute");
+    expect(formatDuration(604800n, "en-US")).toBe("7 days");
   });
   it("counts UTF-8 bytes rather than JavaScript characters", () => {
     expect(utf8Bytes("你好")).toBe(6);

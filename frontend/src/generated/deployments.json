@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "deployments": {
     "31337": {
-      "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-      "deploymentBlock": "4",
-      "deploymentTxHash": "",
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "deploymentBlock": "1",
+      "deploymentTxHash": "0x6c94881a603db8e1261086a69f7852e1b03add5b4dfa7a74c953f4061cce48a4",
       "runtimeCodeHash": "0xef525729e2adfd2c09a24d25924e55145150d1b400dc9bedd822277d65e4580d",
-      "deployedAt": "2026-10-31T10:12:39.147Z",
+      "deployedAt": "2026-10-31T16:37:30.196Z",
       "termsVersion": "CopyrightLicenseTerms/v1"
     }
   }

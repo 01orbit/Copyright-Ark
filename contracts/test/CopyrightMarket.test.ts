@@ -51,4 +51,53 @@ describe("CopyrightMarket", async () => {
     assert.equal(await market.read.claimable([seller.account.address]),before+parseEther("0.0023"));
     assert.equal(await market.read.totalLockedDeposits(),0n);
   });
+  it("keeps an offer deposit locked until cancellation and credits it only once", async () => {
+    const escrowMarket = await viem.deployContract("CopyrightMarket", [admin.account.address, 100000000000000n, 50000000000000n]);
+    const escrowHash = `0x${"ab".repeat(32)}` as `0x${string}`;
+    await escrowMarket.write.registerWork([escrowHash,"Escrow Test","",1,""],{account:seller.account});
+    const now = BigInt(Math.floor(Date.now()/1000));
+    const price = parseEther("0.001");
+    const compensation = parseEther("0.0002");
+    const deposit = price + compensation;
+
+    await escrowMarket.write.createOffer([1,price,3600n,compensation,now+3600n,"research"],{account:seller.account,value:deposit});
+    assert.equal(await escrowMarket.read.claimable([seller.account.address]),0n);
+    assert.deepEqual(await escrowMarket.read.getAccounting(),[deposit,deposit,0n,0n,0n,0n]);
+    await assert.rejects(() => escrowMarket.write.withdraw([seller.account.address],{account:seller.account}));
+
+    await escrowMarket.write.cancelOffer([1],{account:seller.account});
+    assert.equal(await escrowMarket.read.claimable([seller.account.address]),deposit);
+    assert.deepEqual(await escrowMarket.read.getAccounting(),[deposit,0n,deposit,0n,0n,0n]);
+    await escrowMarket.write.withdraw([seller.account.address],{account:seller.account});
+    assert.equal(await escrowMarket.read.claimable([seller.account.address]),0n);
+    assert.deepEqual(await escrowMarket.read.getAccounting(),[0n,0n,0n,0n,0n,0n]);
+    await assert.rejects(() => escrowMarket.write.withdraw([seller.account.address],{account:seller.account}));
+    await assert.rejects(() => escrowMarket.write.cancelOffer([1],{account:seller.account}));
+  });
+  it("licenses one work to multiple buyers through separate offers and prevents double acceptance", async () => {
+    const multiMarket = await viem.deployContract("CopyrightMarket", [admin.account.address, 0n, 0n]);
+    await multiMarket.write.registerWork([`0x${"cd".repeat(32)}`, "Shared Work", "", 1, ""], { account: seller.account });
+    const publicClient = await viem.getPublicClient();
+    const deadline = (await publicClient.getBlock()).timestamp + 86400n;
+    const price = parseEther("0.001");
+    const deposit = parseEther("0.0012");
+    for (let index = 0; index < 2; index++) {
+      await multiMarket.write.createOffer([1n, price, 86400n, deposit - price, deadline, "non-exclusive"], { account: seller.account, value: deposit });
+    }
+    const first = await multiMarket.read.getOffer([1n]);
+    await multiMarket.write.acceptOffer([1n, first.termsHash], { account: buyer.account, value: price });
+    const otherBalance = await publicClient.getBalance({ address: other.account.address });
+    await assert.rejects(() => multiMarket.write.acceptOffer([1n, first.termsHash], { account: other.account, value: price }));
+    assert.equal(await publicClient.getBalance({ address: other.account.address }), otherBalance);
+    const second = await multiMarket.read.getOffer([2n]);
+    await multiMarket.write.acceptOffer([2n, second.termsHash], { account: other.account, value: price });
+    assert.equal((await multiMarket.read.getLicense([1n])).licensee.toLowerCase(), buyer.account.address.toLowerCase());
+    assert.equal((await multiMarket.read.getLicense([2n])).licensee.toLowerCase(), other.account.address.toLowerCase());
+    assert.equal((await multiMarket.read.getWork([1n])).acceptedCount, 2n);
+    assert.equal(await multiMarket.read.totalLockedDeposits(), deposit * 2n);
+    await multiMarket.write.revokeLicense([1n], { account: seller.account });
+    assert.equal(await multiMarket.read.getLicenseStatus([1n]), 2);
+    assert.equal(await multiMarket.read.getLicenseStatus([2n]), 1);
+    assert.equal(await multiMarket.read.totalLockedDeposits(), deposit);
+  });
 });
