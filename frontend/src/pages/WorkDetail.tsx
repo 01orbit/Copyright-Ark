@@ -1,5 +1,4 @@
 import { useLanguage } from "../i18n";
-import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button, Chip } from "@heroui/react";
 import { useReadContract, useReadContracts } from "wagmi";
@@ -12,7 +11,7 @@ import {
   PageHeading,
   Panel,
 } from "../components/ui";
-import { OfferCard, OfferModal } from "../components/Offers";
+import { OfferCard } from "../components/Offers";
 
 export default function WorkDetail() {
   const { t, locale } = useLanguage();
@@ -20,7 +19,6 @@ export default function WorkDetail() {
   const { id = "" } = useParams();
   const workId = /^\d+$/.test(id) ? BigInt(id) : 0n;
   const { address, chainId } = useMarket();
-  const [showOfferForm, setShowOfferForm] = useState(false);
   const {
     data: work,
     isLoading,
@@ -152,20 +150,9 @@ export default function WorkDetail() {
           />
         </Panel>
         <Panel title={t("使用许可")}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted">
-              {t("选择固定条款的授权挂单。")}
-            </p>
-            {!work.invalidatedAt && (
-              <Button
-                size="sm"
-                variant="outline"
-                onPress={() => setShowOfferForm(true)}
-              >
-                {t("创建挂单")}
-              </Button>
-            )}
-          </div>
+          <p className="text-sm text-muted">
+            {t("选择固定条款的授权挂单。")}
+          </p>
           {offersError ? (
             <Notice>{t("挂单读取失败，请检查网络。")}</Notice>
           ) : loadingOffers ? (
@@ -175,13 +162,10 @@ export default function WorkDetail() {
               <OfferCard key={String(offer.id)} offer={offer} work={work} />
             ))
           ) : (
-            <EmptyState>{t("暂无挂单，登记人可以创建使用许可。")}</EmptyState>
+            <EmptyState>{t("暂无可接受的授权挂单。")}</EmptyState>
           )}
         </Panel>
       </div>
-      {showOfferForm && (
-        <OfferModal work={work} onClose={() => setShowOfferForm(false)} />
-      )}
     </div>
   );
 }

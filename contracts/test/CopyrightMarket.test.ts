@@ -42,4 +42,13 @@ describe("CopyrightMarket", async () => {
     await market.write.creditCaseReward([1],{account:other.account});
     assert.equal(await market.read.claimable([admin.account.address]),150000000000000n);
   });
+  it("lets the seller cancel an open offer and credits its full deposit", async () => {
+    const now = BigInt(Math.floor(Date.now()/1000));
+    const before = await market.read.claimable([seller.account.address]);
+    await market.write.createOffer([1,parseEther("0.002"),3600n,parseEther("0.0003"),now+3600n,"research"],{account:seller.account,value:parseEther("0.0023")});
+    await market.write.cancelOffer([2],{account:seller.account});
+    assert.equal(await market.read.getOfferStatus([2]),3);
+    assert.equal(await market.read.claimable([seller.account.address]),before+parseEther("0.0023"));
+    assert.equal(await market.read.totalLockedDeposits(),0n);
+  });
 });

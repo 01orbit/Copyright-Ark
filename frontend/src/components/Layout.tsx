@@ -16,7 +16,7 @@ import LanguageSwitch from "./LanguageSwitch";
 const navigation = [
   ["/discover", "发现作品"],
   ["/register", "登记作品"],
-  ["/offers", "授权挂单"],
+  ["/offers", "个人挂单"],
   ["/verify", "使用权查询"],
   ["/account", "我的账户"],
   ["/admin", "管理台"],
