@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "chainId": 31337,
+  "deployment": {
+    "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+    "deploymentBlock": "4",
+    "deploymentTxHash": "",
+    "runtimeCodeHash": "0x3ee2972b0715dc7facf9c36a01526b7c9b861dc84227542ffa388a03878fc71d",
+    "deployedAt": "2026-10-31T04:49:22.258Z",
+    "termsVersion": "CopyrightLicenseTerms/v1"
+  }
+}

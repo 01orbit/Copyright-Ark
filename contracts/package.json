@@ -1,0 +1,27 @@
+{
+  "name": "copyright-dapp-contracts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
+    "export-interface": "hardhat run scripts/export-interface.ts --network localhost",
+    "seed:local": "hardhat run scripts/seed-local.ts --network localhost",
+    "smoke:sepolia": "hardhat run scripts/smoke.ts --network sepolia",
+    "check:sepolia": "hardhat run scripts/check-rpc.ts --network sepolia --no-compile",
+    "export:sepolia": "hardhat run scripts/export-interface.ts --network sepolia"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-viem": "5.0.7",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3",
+    "hardhat": "3.21.1",
+    "dotenv": "^16.4.7"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.6.1"
+  }
+}

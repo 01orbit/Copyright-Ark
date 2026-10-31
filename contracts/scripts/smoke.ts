@@ -1,0 +1,13 @@
+import { network } from "hardhat";
+const { viem } = await network.connect();
+const publicClient = await viem.getPublicClient();
+const chain=await publicClient.getChainId();
+if(chain!==11155111) throw new Error("smoke:sepolia only runs on Sepolia");
+const deployment = await import(`../deployments/${chain}.json`,{with:{type:"json"}}).catch(()=>null);
+if(!deployment) throw new Error("Missing deployment record");
+const address=deployment.default.deployment.address as `0x${string}`;
+const code=await publicClient.getBytecode({address}); if(!code) throw new Error("No runtime code");
+const artifact=(await import("../artifacts/contracts/CopyrightMarket.sol/CopyrightMarket.json",{with:{type:"json"}})).default;
+const owner=await publicClient.readContract({address,abi:artifact.abi,functionName:"owner"});
+const terms=await publicClient.readContract({address,abi:artifact.abi,functionName:"TERMS_VERSION"});
+console.log({chain,address,owner,terms});

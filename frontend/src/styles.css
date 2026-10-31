@@ -1,0 +1,49 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/* HeroUI theme tokens: one neutral palette and visible control borders. */
+:root {
+  --background: #f4f6f8;
+  --foreground: #202632;
+  --surface: #ffffff;
+  --accent: #3168c5;
+  --accent-foreground: #ffffff;
+  --link: #3168c5;
+  --muted: #667085;
+  --border: #d5dce5;
+  --field-border: #c6cfda;
+  --field-border-width: 1px;
+}
+
+@layer base {
+  body {
+    @apply m-0 bg-background font-sans text-foreground antialiased;
+  }
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+  dialog::backdrop {
+    @apply bg-black/40 backdrop-blur-sm;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-4 outline-accent;
+  }
+  ::selection {
+    @apply bg-accent/15;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
