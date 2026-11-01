@@ -10,11 +10,11 @@
       "termsVersion": "CopyrightLicenseTerms/v1"
     },
     "11155111": {
-      "address": "0x8b5fbcd98f9643ea0f0d87bc7aeaf4ac05e40732",
-      "deploymentBlock": "12039057",
-      "deploymentTxHash": "0x1b4f00c04d30c06cfa3800c5a79494c7e24924be6b2fdadab0d8e5c152480207",
-      "runtimeCodeHash": "0xef525729e2adfd2c09a24d25924e55145150d1b400dc9bedd822277d65e4580d",
-      "deployedAt": "2026-11-01T05:58:29.470Z",
+      "address": "0x90342d37ae5152982a22f34e4609c4e402a2a597",
+      "deploymentBlock": "12039479",
+      "deploymentTxHash": "0x58ba02268807c6e24d2efd38c8ce57a0e1a41b887e7724c591ddf0dd4585294a",
+      "runtimeCodeHash": "0x60dfe44c22782acade707299d5d29084733dd19986e788af6df0d4c785c41024",
+      "deployedAt": "2026-11-01T07:22:49.903Z",
       "termsVersion": "CopyrightLicenseTerms/v1"
     }
   }

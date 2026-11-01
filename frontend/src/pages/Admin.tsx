@@ -31,6 +31,14 @@ export default function Admin() {
     chainId,
     query: { enabled: !!address },
   });
+  const { data: accountIsAdmin } = useReadContract({
+    address,
+    abi,
+    functionName: "isAdmin",
+    chainId,
+    args: [account!],
+    query: { enabled: !!address && !!account },
+  });
   const { data: subsidy } = useReadContract({
     address,
     abi,
@@ -61,7 +69,7 @@ export default function Admin() {
   const [decisionHash, setDecisionHash] = useState("");
   const [summary, setSummary] = useState("");
   const [outcome, setOutcome] = useState(2);
-  const isOwner = !!account && account.toLowerCase() === owner?.toLowerCase();
+  const isAdmin = accountIsAdmin === true;
   const canOpen =
     isId(workId) && /^[A-Z0-9-]{1,64}$/.test(reference) && isHash(evidence);
   const canResolve =
@@ -75,9 +83,9 @@ export default function Admin() {
       <PageHeading title={t("管理台")}>
         {t("录入线下案件并提交处理结果，案件报酬来自独立费用池。")}
       </PageHeading>
-      {!isOwner ? (
+      {!isAdmin ? (
         <Notice>
-          {t("请使用管理员钱包连接。管理员地址：")}
+          {t("请使用已授权的管理员钱包连接。链上 owner：")}
           {shorten(owner)}
         </Notice>
       ) : (

@@ -22,6 +22,11 @@ export const copyrightMarketAbi = [
   },
   {
     "inputs": [],
+    "name": "AdminListTooLarge",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "AlreadySettled",
     "type": "error"
   },
@@ -103,6 +108,11 @@ export const copyrightMarketAbi = [
   {
     "inputs": [],
     "name": "LicenseNotSettleable",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAdmin",
     "type": "error"
   },
   {
@@ -201,6 +211,25 @@ export const copyrightMarketAbi = [
     "inputs": [],
     "name": "ZeroRecipient",
     "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "enabled",
+        "type": "bool"
+      }
+    ],
+    "name": "AdminUpdated",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -728,6 +757,19 @@ export const copyrightMarketAbi = [
   },
   {
     "inputs": [],
+    "name": "MAX_ADMINS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "MAX_DURATION",
     "outputs": [
       {
@@ -996,6 +1038,19 @@ export const copyrightMarketAbi = [
         "internalType": "uint256",
         "name": "surplus",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAdmins",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
       }
     ],
     "stateMutability": "view",
@@ -1730,6 +1785,25 @@ export const copyrightMarketAbi = [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "isAdmin",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "id",
         "type": "uint256"
@@ -2091,6 +2165,19 @@ export const copyrightMarketAbi = [
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address[]",
+        "name": "accounts",
+        "type": "address[]"
+      }
+    ],
+    "name": "setAdmins",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {

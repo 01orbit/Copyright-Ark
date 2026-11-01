@@ -30,6 +30,7 @@ contract CopyrightMarket is Ownable2Step, ReentrancyGuard {
     struct CaseRecord { uint256 id; uint256 workId; string externalRef; bytes32 evidenceHash; address openedBy; uint64 openedAt; CaseStatus status; CaseOutcome outcome; bytes32 decisionHash; string decisionSummary; address resolvedBy; uint64 resolvedAt; uint256 rewardAmount; bool rewardCredited; }
 
     error NotFound(); error ZeroHash(); error EmptyField(); error FieldTooLong(); error InvalidCategory(); error InvalidReferenceUrl(); error DuplicateActiveWork(); error NotRegistrant(); error WorkInvalidatedError(); error InvalidAmount(); error InvalidDuration(); error InvalidAcceptUntil(); error OfferNotOpen(); error OfferNotRefundable(); error SelfPurchase(); error TermsMismatch(); error LicenseNotActive(); error LicenseNotSettleable(); error AlreadySettled(); error ZeroRecipient(); error ZeroBalance(); error TransferFailed(); error InvalidPage(); error InvalidCaseRef(); error DuplicateCaseRef(); error PendingCaseExists(); error CaseNotPending(); error InvalidOutcome(); error RewardAlreadyCredited(); error InsufficientRewardPool(); error NotPayableAmount();
+    error NotAdmin(); error AdminListTooLarge();
 
     uint256 public nextWorkId = 1; uint256 public nextOfferId = 1; uint256 public nextLicenseId = 1; uint256 public nextCaseId = 1;
     uint256 public totalLockedDeposits; uint256 public totalClaimable; uint256 public rewardPoolBalance; uint256 public pendingCaseRewards;
@@ -39,6 +40,7 @@ contract CopyrightMarket is Ownable2Step, ReentrancyGuard {
     mapping(bytes32 => uint256) public activeWorkByHash; mapping(bytes32 => uint256) public latestWorkByHash;
     mapping(uint256 => Work) private works; mapping(uint256 => Offer) private offers; mapping(uint256 => License) private licenses; mapping(uint256 => CaseRecord) private cases;
     mapping(bytes32 => bool) private usedCaseRef; mapping(uint256 => uint256) public openCaseByWork;
+    mapping(address => bool) private adminStatus; address[] private adminList;
     uint256[] private workIds; uint256[] private caseIds;
     mapping(address => uint256[]) private worksByRegistrant; mapping(bytes32 => uint256[]) private worksByHash;
     mapping(uint256 => uint256[]) private offersByWork; mapping(address => uint256[]) private offersBySeller;
@@ -58,10 +60,39 @@ contract CopyrightMarket is Ownable2Step, ReentrancyGuard {
     event CaseResolved(uint256 indexed caseId, uint256 indexed workId, CaseOutcome outcome, bytes32 decisionHash, address indexed resolvedBy, uint256 rewardAmount);
     event RewardPoolFunded(address indexed funder, uint256 amount, uint256 newBalance);
     event CaseRewardCredited(uint256 indexed caseId, address indexed executor, uint256 amount);
+    event AdminUpdated(address indexed account, bool enabled);
+
+    uint256 public constant MAX_ADMINS = 50;
 
     constructor(address initialOwner, uint256 gasSubsidy_, uint256 reviewReward_) Ownable(initialOwner) {
         if (initialOwner == address(0)) revert ZeroRecipient();
         gasSubsidy = gasSubsidy_; reviewReward = reviewReward_;
+    }
+
+    modifier onlyAdmin() { if (!isAdmin(msg.sender)) revert NotAdmin(); _; }
+
+    function isAdmin(address account) public view returns(bool) { return account == owner() || adminStatus[account]; }
+    function getAdmins() external view returns(address[] memory) { return adminList; }
+    function setAdmins(address[] calldata accounts) external onlyOwner {
+        if (accounts.length > MAX_ADMINS) revert AdminListTooLarge();
+        for (uint256 i; i < adminList.length; i++) {
+            adminStatus[adminList[i]] = false;
+            emit AdminUpdated(adminList[i], false);
+        }
+        delete adminList;
+        for (uint256 i; i < accounts.length; i++) {
+            address account = accounts[i];
+            if (account == address(0)) revert ZeroRecipient();
+            if (account == owner()) continue;
+            bool duplicate;
+            for (uint256 j; j < i; j++) {
+                if (accounts[j] == account) { duplicate = true; break; }
+            }
+            if (duplicate) continue;
+            adminStatus[account] = true;
+            adminList.push(account);
+            emit AdminUpdated(account, true);
+        }
     }
 
     function registerWork(bytes32 fileHash, string calldata title, string calldata description, uint8 category, string calldata referenceUrl) external returns (uint256 id) {
@@ -102,8 +133,8 @@ contract CopyrightMarket is Ownable2Step, ReentrancyGuard {
 
     function withdraw(address payable recipient) external nonReentrant { if(recipient==address(0)) revert ZeroRecipient(); uint256 amount=claimable[msg.sender]; if(amount==0) revert ZeroBalance(); claimable[msg.sender]=0;totalClaimable-=amount; (bool ok,)=recipient.call{value:amount}(""); if(!ok) revert TransferFailed(); emit Withdrawal(msg.sender,recipient,amount); }
 
-    function openCase(uint256 workId,string calldata externalRef,bytes32 evidenceHash) external onlyOwner returns(uint256 id) { Work storage w=works[workId]; if(w.id==0) revert NotFound(); if(w.invalidatedAt!=0) revert WorkInvalidatedError(); _checkCaseRef(externalRef); if(evidenceHash==bytes32(0)) revert ZeroHash(); if(usedCaseRef[keccak256(bytes(externalRef))]) revert DuplicateCaseRef(); if(openCaseByWork[workId]!=0) revert PendingCaseExists(); id=nextCaseId++; usedCaseRef[keccak256(bytes(externalRef))]=true; cases[id]=CaseRecord(id,workId,externalRef,evidenceHash,msg.sender,uint64(block.timestamp),CaseStatus.Pending,CaseOutcome.None,bytes32(0),"",address(0),0,0,false); openCaseByWork[workId]=id; caseIds.push(id); casesByWork[workId].push(id); emit CaseOpened(id,workId,externalRef,evidenceHash,msg.sender); }
-    function resolveCase(uint256 caseId,CaseOutcome outcome,bytes32 decisionHash,string calldata decisionSummary) external onlyOwner { CaseRecord storage c=cases[caseId]; if(c.id==0) revert NotFound(); if(c.status!=CaseStatus.Pending) revert CaseNotPending(); if(outcome!=CaseOutcome.Uphold&&outcome!=CaseOutcome.Invalidate) revert InvalidOutcome(); if(decisionHash==bytes32(0)) revert ZeroHash(); _checkBytes(decisionSummary,1,512); c.status=CaseStatus.Resolved;c.outcome=outcome;c.decisionHash=decisionHash;c.decisionSummary=decisionSummary;c.resolvedBy=msg.sender;c.resolvedAt=uint64(block.timestamp);c.rewardAmount=gasSubsidy+reviewReward;pendingCaseRewards+=c.rewardAmount;openCaseByWork[c.workId]=0; if(outcome==CaseOutcome.Invalidate){ Work storage w=works[c.workId]; w.invalidatedAt=uint64(block.timestamp);w.invalidatedByCaseId=caseId;activeWorkByHash[w.fileHash]=0;emit WorkInvalidated(c.workId,caseId,msg.sender,uint64(block.timestamp)); } emit CaseResolved(caseId,c.workId,outcome,decisionHash,msg.sender,c.rewardAmount); }
+    function openCase(uint256 workId,string calldata externalRef,bytes32 evidenceHash) external onlyAdmin returns(uint256 id) { Work storage w=works[workId]; if(w.id==0) revert NotFound(); if(w.invalidatedAt!=0) revert WorkInvalidatedError(); _checkCaseRef(externalRef); if(evidenceHash==bytes32(0)) revert ZeroHash(); if(usedCaseRef[keccak256(bytes(externalRef))]) revert DuplicateCaseRef(); if(openCaseByWork[workId]!=0) revert PendingCaseExists(); id=nextCaseId++; usedCaseRef[keccak256(bytes(externalRef))]=true; cases[id]=CaseRecord(id,workId,externalRef,evidenceHash,msg.sender,uint64(block.timestamp),CaseStatus.Pending,CaseOutcome.None,bytes32(0),"",address(0),0,0,false); openCaseByWork[workId]=id; caseIds.push(id); casesByWork[workId].push(id); emit CaseOpened(id,workId,externalRef,evidenceHash,msg.sender); }
+    function resolveCase(uint256 caseId,CaseOutcome outcome,bytes32 decisionHash,string calldata decisionSummary) external onlyAdmin { CaseRecord storage c=cases[caseId]; if(c.id==0) revert NotFound(); if(c.status!=CaseStatus.Pending) revert CaseNotPending(); if(outcome!=CaseOutcome.Uphold&&outcome!=CaseOutcome.Invalidate) revert InvalidOutcome(); if(decisionHash==bytes32(0)) revert ZeroHash(); _checkBytes(decisionSummary,1,512); c.status=CaseStatus.Resolved;c.outcome=outcome;c.decisionHash=decisionHash;c.decisionSummary=decisionSummary;c.resolvedBy=msg.sender;c.resolvedAt=uint64(block.timestamp);c.rewardAmount=gasSubsidy+reviewReward;pendingCaseRewards+=c.rewardAmount;openCaseByWork[c.workId]=0; if(outcome==CaseOutcome.Invalidate){ Work storage w=works[c.workId]; w.invalidatedAt=uint64(block.timestamp);w.invalidatedByCaseId=caseId;activeWorkByHash[w.fileHash]=0;emit WorkInvalidated(c.workId,caseId,msg.sender,uint64(block.timestamp)); } emit CaseResolved(caseId,c.workId,outcome,decisionHash,msg.sender,c.rewardAmount); }
     function fundRewardPool() external payable { if(msg.value==0) revert NotPayableAmount(); rewardPoolBalance+=msg.value; emit RewardPoolFunded(msg.sender,msg.value,rewardPoolBalance); }
     function creditCaseReward(uint256 caseId) external { CaseRecord storage c=cases[caseId]; if(c.id==0) revert NotFound(); if(c.status!=CaseStatus.Resolved) revert CaseNotPending(); if(c.rewardCredited) revert RewardAlreadyCredited(); if(rewardPoolBalance<c.rewardAmount) revert InsufficientRewardPool(); c.rewardCredited=true;rewardPoolBalance-=c.rewardAmount;pendingCaseRewards-=c.rewardAmount;_credit(c.resolvedBy,c.rewardAmount,CreditSource.CaseReward,caseId);emit CaseRewardCredited(caseId,c.resolvedBy,c.rewardAmount); }
 

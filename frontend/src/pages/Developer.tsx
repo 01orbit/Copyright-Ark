@@ -1,9 +1,10 @@
 import { useLanguage } from "../i18n";
 import { Button, Chip, Switch } from "@heroui/react";
 import { useEffect, useState } from "react";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import type { Address } from "viem";
 import { localChainEnabled, marketAddress } from "../config";
-import { abi, useMarket, useNetwork } from "../market";
+import { abi, useMarket, useNetwork, useTransaction } from "../market";
 import {
   Field,
   FormTextArea,
@@ -15,6 +16,7 @@ import {
   loadAccounts,
   resetAccounts,
   saveAccounts,
+  validateAccounts,
   type TestAccounts,
   type TestChain,
 } from "../dev/test-accounts";
@@ -24,6 +26,8 @@ export default function Developer() {
   const { chainId, walletChainId } = useMarket();
   const { selectChain, switching, switchError } = useNetwork();
   const { address: wallet, isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const transaction = useTransaction();
   const [chain, setChain] = useState<TestChain>(
     chainId === 31337 ? "31337" : "11155111",
   );
@@ -37,12 +41,22 @@ export default function Developer() {
     chainId,
     query: { enabled: !!contract },
   });
-  const isConfiguredAdmin = Boolean(
-    wallet &&
-      accounts.admin.some(
-        (address) => address.toLowerCase() === wallet.toLowerCase(),
-      ),
-  );
+  const { data: onChainAdmins, error: adminsError } = useReadContract({
+    address: contract,
+    abi,
+    functionName: "getAdmins",
+    chainId,
+    query: { enabled: !!contract },
+  });
+  const { data: walletIsAdmin } = useReadContract({
+    address: contract,
+    abi,
+    functionName: "isAdmin",
+    chainId,
+    args: [wallet!],
+    query: { enabled: !!contract && !!wallet },
+  });
+  const isOwner = !!wallet && !!owner && wallet.toLowerCase() === owner.toLowerCase();
 
   useEffect(() => {
     const next = chainId === 31337 ? "31337" : "11155111";
@@ -59,8 +73,38 @@ export default function Developer() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "无法保存，请检查浏览器是否允许本地存储。",
+          : t("无法保存，请检查浏览器是否允许本地存储。"),
       );
+    }
+  }
+
+  async function syncAdmins() {
+    try {
+      const normalized = validateAccounts(accounts);
+      if (!contract || !isOwner) {
+        setMessage(t("请连接当前链上 owner 钱包后再同步管理员。"));
+        return;
+      }
+      const success = await transaction.run(() =>
+        writeContractAsync({
+          address: contract,
+          abi,
+          functionName: "setAdmins",
+          chainId,
+          args: [normalized.admin as Address[]],
+        }),
+      );
+      if (success) {
+        setAccounts(normalized);
+        try {
+          saveAccounts(chain, normalized);
+        } catch {
+          // The on-chain update remains valid when browser storage is unavailable.
+        }
+        setMessage(t("链上管理员名单已更新。"));
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : t("管理员名单格式无效。"));
     }
   }
 
@@ -68,7 +112,7 @@ export default function Developer() {
     <>
       <PageHeading title={t("开发者菜单")}>
         {t(
-          "管理员地址配置 · Alt + Shift + D 打开 · 地址仅用于核对提示，不改变链上权限。",
+          "管理员权限配置 · Alt + Shift + D 打开 · 修改名单需要当前 owner 签名并写入链上。",
         )}
       </PageHeading>
       <Panel title={t("当前业务网络")}>
@@ -105,16 +149,13 @@ export default function Developer() {
             {t("当前配置网络：")} {chain === "31337" ? t("本地链") : "Sepolia"}
           </p>
           <p className="text-sm text-muted">
-            {t("可填写多个管理员公开地址，每行一个；作者和买家可使用任意连接的钱包。不要填写私钥或助记词。")}
+            {t("填写要授权的管理员公开地址，每行一个；提交后由当前 owner 签名写入合约。不要填写私钥或助记词。")}
           </p>
           <form
             className="space-y-5"
             onSubmit={(event) => {
               event.preventDefault();
-              update(
-                () => saveAccounts(chain, accounts),
-                "已保存到当前浏览器，刷新后仍然有效。",
-              );
+              void syncAdmins();
             }}
           >
             <Field label={t("管理员地址")}>
@@ -135,15 +176,17 @@ export default function Developer() {
                 }}
               />
             </Field>
-            <Notice>{message}</Notice>
+            <Notice>{transaction.message || message}</Notice>
             <div className="flex flex-wrap gap-3">
-              <Button type="submit">{t("保存覆盖配置")}</Button>
+              <Button type="submit" isDisabled={!isOwner || transaction.busy}>
+                {transaction.busy ? t("同步中…") : t("同步链上管理员")}
+              </Button>
               <Button
                 variant="outline"
                 onPress={() =>
                   update(
                     () => resetAccounts(chain),
-                    "已恢复当前网络的默认配置。",
+                    t("已恢复当前网络的本地默认配置。"),
                   )
                 }
               >
@@ -153,7 +196,7 @@ export default function Developer() {
           </form>
           <p className="text-xs text-muted">
             {t(
-              "仅对本浏览器、当前网站生效。不会写回配置文件，也不会上传服务器；更换浏览器或清除网站数据后恢复默认。",
+              "管理员名单会写入当前网络的合约；本地浏览器仍会保存一份地址草稿，方便下次编辑。删除地址并同步即可撤销其管理员权限。",
             )}
           </p>
         </Panel>
@@ -163,14 +206,14 @@ export default function Developer() {
             {wallet || t("尚未连接，请使用顶部钱包按钮连接。")}
           </p>
           <div className="flex flex-wrap gap-2">
-            {isConfiguredAdmin && (
+            {walletIsAdmin && (
               <Chip size="sm" variant="soft">
-                {t("匹配管理员地址")}
+                {t("当前钱包已获管理员权限")}
               </Chip>
             )}
-            {wallet && !isConfiguredAdmin && (
+            {wallet && walletIsAdmin === false && (
               <span className="text-sm text-muted">
-                {t("当前钱包不是配置的管理员地址。")}
+                {t("当前钱包尚未获管理员权限。")}
               </span>
             )}
           </div>
@@ -190,17 +233,18 @@ export default function Developer() {
                   ? t("读取失败，请检查 RPC。")
                   : owner || t("正在读取…")}
             </p>
-            {owner &&
-              accounts.admin.length > 0 &&
-              !accounts.admin.some(
-                (address) => address.toLowerCase() === owner.toLowerCase(),
-              ) && (
-                <Notice>
-                  {t(
-                    "填写的管理员地址与链上 owner 不同。保存配置不会授予管理权限。",
-                  )}
-                </Notice>
-              )}
+            <p className="pt-2 text-muted">{t("已授权的额外管理员")}</p>
+            {adminsError ? (
+              <Notice>{t("管理员名单读取失败，请检查 RPC。")}</Notice>
+            ) : onChainAdmins?.length ? (
+              onChainAdmins.map((address) => (
+                <p key={address} className="break-all font-mono text-sm">
+                  {address}
+                </p>
+              ))
+            ) : (
+              <p className="text-muted">{t("暂无额外管理员，只有 owner 可以管理案件。")}</p>
+            )}
           </div>
           <p className="text-xs leading-relaxed text-muted">
             {t(

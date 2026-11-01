@@ -9,6 +9,24 @@ describe("CopyrightMarket", async () => {
   const [admin, seller, buyer, other] = clients;
   const market = await viem.deployContract("CopyrightMarket", [admin.account.address, 100000000000000n, 50000000000000n]);
   const hash = `0x${"12".repeat(32)}` as `0x${string}`;
+  it("lets the owner manage multiple on-chain administrators", async () => {
+    const managedMarket = await viem.deployContract("CopyrightMarket", [admin.account.address, 0n, 0n]);
+    assert.equal(await managedMarket.read.isAdmin([admin.account.address]), true);
+    assert.equal(await managedMarket.read.isAdmin([buyer.account.address]), false);
+    await assert.rejects(() => managedMarket.write.setAdmins([[buyer.account.address]], { account: buyer.account }));
+    await managedMarket.write.setAdmins([[buyer.account.address, other.account.address]], { account: admin.account });
+    assert.deepEqual(
+      (await managedMarket.read.getAdmins()).map((address) => address.toLowerCase()),
+      [buyer.account.address, other.account.address].map((address) => address.toLowerCase()),
+    );
+    assert.equal(await managedMarket.read.isAdmin([buyer.account.address]), true);
+    await managedMarket.write.registerWork([`0x${"aa".repeat(32)}`, "Admin Work", "", 1, ""], { account: other.account });
+    await managedMarket.write.openCase([1n, "CASE-ADMIN-1", `0x${"bb".repeat(32)}`], { account: buyer.account });
+    await managedMarket.write.setAdmins([[other.account.address]], { account: admin.account });
+    assert.equal(await managedMarket.read.isAdmin([buyer.account.address]), false);
+    assert.equal(await managedMarket.read.isAdmin([admin.account.address]), true);
+    await assert.rejects(() => managedMarket.write.openCase([1n, "CASE-ADMIN-2", `0x${"cc".repeat(32)}`], { account: buyer.account }));
+  });
   it("registers, prevents duplicate active hash and creates a deposit-backed offer", async () => {
     await market.write.registerWork([hash,"Test Work","Description",1,"https://example.com/work"],{account:seller.account});
     const work = await market.read.getWork([1n]);
