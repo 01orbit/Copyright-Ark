@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "chainId": 11155111,
   "deployment": {
-    "address": "0x90342d37ae5152982a22f34e4609c4e402a2a597",
-    "deploymentBlock": "12039479",
-    "deploymentTxHash": "0x58ba02268807c6e24d2efd38c8ce57a0e1a41b887e7724c591ddf0dd4585294a",
-    "runtimeCodeHash": "0x60dfe44c22782acade707299d5d29084733dd19986e788af6df0d4c785c41024",
-    "deployedAt": "2026-11-01T07:22:49.903Z",
+    "address": "0x169ad49a0ed3d5522ae1511a15d2e55237a0c9a6",
+    "deploymentBlock": "12039929",
+    "deploymentTxHash": "0xd601db2a8c1029e0efcf634386bded07166fa474fa9ed9125a5bf0d85f5b0fdf",
+    "runtimeCodeHash": "0x97cb88d5e0d796fccebad0d1fcf2c092311a790774f08870a99e06bcd1ef81fe",
+    "deployedAt": "2026-11-01T08:53:06.259Z",
     "termsVersion": "CopyrightLicenseTerms/v1"
   }
 }

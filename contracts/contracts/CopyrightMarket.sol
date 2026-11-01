@@ -13,6 +13,7 @@ contract CopyrightMarket is Ownable2Step, ReentrancyGuard {
     uint64 public constant MAX_DURATION = 365 days;
     uint64 public constant MIN_ACCEPT_WINDOW = 60;
     uint64 public constant MAX_ACCEPT_WINDOW = 30 days;
+    uint256 public constant MAX_BATCH_SIZE = 20;
 
     enum WorkStatus { None, Active, Invalidated }
     enum OfferStoredState { None, Open, Accepted, Closed }
@@ -30,7 +31,7 @@ contract CopyrightMarket is Ownable2Step, ReentrancyGuard {
     struct CaseRecord { uint256 id; uint256 workId; string externalRef; bytes32 evidenceHash; address openedBy; uint64 openedAt; CaseStatus status; CaseOutcome outcome; bytes32 decisionHash; string decisionSummary; address resolvedBy; uint64 resolvedAt; uint256 rewardAmount; bool rewardCredited; }
 
     error NotFound(); error ZeroHash(); error EmptyField(); error FieldTooLong(); error InvalidCategory(); error InvalidReferenceUrl(); error DuplicateActiveWork(); error NotRegistrant(); error WorkInvalidatedError(); error InvalidAmount(); error InvalidDuration(); error InvalidAcceptUntil(); error OfferNotOpen(); error OfferNotRefundable(); error SelfPurchase(); error TermsMismatch(); error LicenseNotActive(); error LicenseNotSettleable(); error AlreadySettled(); error ZeroRecipient(); error ZeroBalance(); error TransferFailed(); error InvalidPage(); error InvalidCaseRef(); error DuplicateCaseRef(); error PendingCaseExists(); error CaseNotPending(); error InvalidOutcome(); error RewardAlreadyCredited(); error InsufficientRewardPool(); error NotPayableAmount();
-    error NotAdmin(); error AdminListTooLarge();
+    error NotAdmin(); error AdminListTooLarge(); error InvalidQuantity();
 
     uint256 public nextWorkId = 1; uint256 public nextOfferId = 1; uint256 public nextLicenseId = 1; uint256 public nextCaseId = 1;
     uint256 public totalLockedDeposits; uint256 public totalClaimable; uint256 public rewardPoolBalance; uint256 public pendingCaseRewards;
@@ -105,12 +106,28 @@ contract CopyrightMarket is Ownable2Step, ReentrancyGuard {
     }
 
     function createOffer(uint256 workId,uint256 price,uint64 duration,uint256 compensation,uint64 acceptUntil,string calldata scope) external payable returns(uint256 id) {
+        return _createOffers(workId,price,duration,compensation,acceptUntil,scope,1);
+    }
+
+    // One payment creates independent offers; any failure reverts the whole batch.
+    function createOffers(uint256 workId,uint256 price,uint64 duration,uint256 compensation,uint64 acceptUntil,string calldata scope,uint256 quantity) external payable returns(uint256 firstOfferId) {
+        return _createOffers(workId,price,duration,compensation,acceptUntil,scope,quantity);
+    }
+
+    function _createOffers(uint256 workId,uint256 price,uint64 duration,uint256 compensation,uint64 acceptUntil,string calldata scope,uint256 quantity) internal returns(uint256 firstOfferId) {
+        if(quantity==0||quantity>MAX_BATCH_SIZE) revert InvalidQuantity();
         Work storage w=works[workId]; if(w.id==0) revert NotFound(); if(w.registrant!=msg.sender) revert NotRegistrant(); if(w.invalidatedAt!=0) revert WorkInvalidatedError();
-        if(price<MIN_PRICE||price>MAX_PRICE||compensation<MIN_PRICE||compensation>MAX_PRICE||msg.value!=price+compensation) revert InvalidAmount();
+        if(price<MIN_PRICE||price>MAX_PRICE||compensation<MIN_PRICE||compensation>MAX_PRICE||msg.value!=(price+compensation)*quantity) revert InvalidAmount();
         if(duration<MIN_DURATION||duration>MAX_DURATION) revert InvalidDuration(); if(acceptUntil<block.timestamp+MIN_ACCEPT_WINDOW||acceptUntil>block.timestamp+MAX_ACCEPT_WINDOW) revert InvalidAcceptUntil(); _checkBytes(scope,1,512);
-        id=nextOfferId++; bytes32 terms=termsHash(id,workId,w.fileHash,msg.sender,price,duration,compensation,acceptUntil,scope);
-        offers[id]=Offer(id,workId,msg.sender,price,compensation,duration,acceptUntil,uint64(block.timestamp),scope,terms,OfferStoredState.Open,OfferCloseReason.None,0);
-        offersByWork[workId].push(id); offersBySeller[msg.sender].push(id); totalLockedDeposits+=msg.value; emit OfferCreated(id,workId,msg.sender,price,compensation,duration,acceptUntil,terms);
+        firstOfferId=nextOfferId;
+        for(uint256 i; i<quantity; i++) {
+            uint256 id=nextOfferId++;
+            bytes32 terms=termsHash(id,workId,w.fileHash,msg.sender,price,duration,compensation,acceptUntil,scope);
+            offers[id]=Offer(id,workId,msg.sender,price,compensation,duration,acceptUntil,uint64(block.timestamp),scope,terms,OfferStoredState.Open,OfferCloseReason.None,0);
+            offersByWork[workId].push(id); offersBySeller[msg.sender].push(id);
+            emit OfferCreated(id,workId,msg.sender,price,compensation,duration,acceptUntil,terms);
+        }
+        totalLockedDeposits+=msg.value;
     }
 
     function cancelOffer(uint256 offerId) external { Offer storage o=offers[offerId]; if(o.id==0) revert NotFound(); if(o.seller!=msg.sender) revert NotRegistrant(); if(!_isOfferOpen(o)) revert OfferNotOpen();

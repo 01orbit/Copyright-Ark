@@ -10,4 +10,6 @@ const code=await publicClient.getBytecode({address}); if(!code) throw new Error(
 const artifact=(await import("../artifacts/contracts/CopyrightMarket.sol/CopyrightMarket.json",{with:{type:"json"}})).default;
 const owner=await publicClient.readContract({address,abi:artifact.abi,functionName:"owner"});
 const terms=await publicClient.readContract({address,abi:artifact.abi,functionName:"TERMS_VERSION"});
-console.log({chain,address,owner,terms});
+const maxBatchSize=await publicClient.readContract({address,abi:artifact.abi,functionName:"MAX_BATCH_SIZE"});
+if(maxBatchSize!==20n) throw new Error("Unexpected batch limit; check the deployed contract version.");
+console.log({chain,address,owner,terms,maxBatchSize});

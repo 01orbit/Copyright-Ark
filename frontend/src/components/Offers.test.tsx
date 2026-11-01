@@ -50,11 +50,11 @@ async function form() {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
   }
-  const publish = () => [...document.querySelectorAll("button")].find((button) => /Lock deposit and publish|Continue remaining offers/.test(button.textContent ?? ""))!;
+  const publish = () => [...document.querySelectorAll("button")].find((button) => /Lock deposit and publish|Check transaction status/.test(button.textContent ?? ""))!;
   return { close, input, quantity, publish, cleanup: async () => { await act(() => root.unmount()); host.remove(); } };
 }
 
-it("publishes identical independent offers, shows total deposits, and resumes after a rejected signature", async () => {
+it("submits a batch with one signature and the exact total deposit, allowing retry after rejection", async () => {
   const ui = await form();
   try {
     expect(ui.input.value).toBe("1");
@@ -63,23 +63,20 @@ it("publishes identical independent offers, shows total deposits, and resumes af
     await ui.quantity("21");
     expect(ui.publish().disabled).toBe(true);
     await ui.quantity("3");
-    expect(document.body.textContent).toContain("Remaining deposits: 0.0036 ETH");
-    mocks.write.mockResolvedValueOnce("0x01").mockRejectedValueOnce(new Error("User rejected"));
+    expect(document.body.textContent).toContain("Total deposit: 0.0036 ETH");
+    mocks.write.mockRejectedValueOnce(new Error("User rejected"));
+    await act(() => ui.publish().click());
+    expect(mocks.write).toHaveBeenCalledOnce();
+    expect(ui.close).not.toHaveBeenCalled();
+    expect(ui.input.closest("fieldset")!.disabled).toBe(false);
     await act(() => ui.publish().click());
     expect(mocks.write).toHaveBeenCalledTimes(2);
-    expect(ui.close).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain("Published 1 of 3 offers");
-    expect(ui.input.closest("fieldset")!.disabled).toBe(true);
-    expect(document.body.textContent).toContain("Remaining deposits: 0.0024 ETH");
-    await act(() => ui.publish().click());
-    expect(mocks.write).toHaveBeenCalledTimes(4);
     expect(ui.close).toHaveBeenCalledOnce();
     for (const [call] of mocks.write.mock.calls) {
-      expect(call.value).toBe(1200000000000000n);
-      expect(call.functionName).toBe("createOffer");
-      expect(call.args).toEqual([1n, 1000000000000000n, 604800n, 200000000000000n, 1700086400n, "Classroom presentations and non-commercial research only"]);
+      expect(call.value).toBe(3600000000000000n);
+      expect(call.functionName).toBe("createOffers");
+      expect(call.args).toEqual([1n, 1000000000000000n, 604800n, 200000000000000n, 1700086400n, "Classroom presentations and non-commercial research only", 3n]);
     }
-    expect(mocks.block).toHaveBeenCalledOnce();
   } finally { await ui.cleanup(); }
 });
 
@@ -90,8 +87,25 @@ it("waits for the submitted transaction again after a receipt timeout instead of
     await act(() => ui.publish().click());
     expect(mocks.write).toHaveBeenCalledOnce();
     expect(ui.close).not.toHaveBeenCalled();
+    expect(ui.input.closest("fieldset")!.disabled).toBe(true);
     await act(() => ui.publish().click());
     expect(mocks.write).toHaveBeenCalledOnce();
+    expect(ui.close).toHaveBeenCalledOnce();
+  } finally { await ui.cleanup(); }
+});
+
+it("unlocks the form after a reverted batch so the next attempt sends a new transaction", async () => {
+  const ui = await form();
+  try {
+    await ui.quantity("3");
+    mocks.run.mockImplementationOnce(async (send: () => Promise<string>) => { await send(); return false; });
+    mocks.receipt.mockResolvedValueOnce({ status: "reverted" });
+    await act(() => ui.publish().click());
+    expect(ui.input.closest("fieldset")!.disabled).toBe(false);
+    await ui.quantity("2");
+    await act(() => ui.publish().click());
+    expect(mocks.write).toHaveBeenCalledTimes(2);
+    expect(mocks.write.mock.lastCall![0].value).toBe(2400000000000000n);
     expect(ui.close).toHaveBeenCalledOnce();
   } finally { await ui.cleanup(); }
 });

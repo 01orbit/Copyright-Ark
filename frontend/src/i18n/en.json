@@ -306,10 +306,10 @@
   "全部期限": "All durations",
   "批量份数": "Number of offers",
   "每次 1–20 份，默认为 1 份。价格和补偿均为每份金额。": "Create 1–20 offers at a time; the default is 1. Price and compensation are per offer.",
-  "可批量发布相同配置的挂单，每份均为独立的非独占授权。每份需要一次钱包确认并支付押金及 Gas；中途取消后可继续剩余份数。": "Publish multiple offers with identical terms. Each is a separate non-exclusive license and requires its own wallet confirmation, deposit, and gas. If interrupted, you can continue the remaining offers.",
+  "相同配置的挂单只需一次钱包确认，一次支付总押金及 Gas。整批全部成功或全部失败；每份挂单仍可独立接单和撤销。": "Publish identical offers with one wallet confirmation and one payment for the total deposit plus gas. The whole batch succeeds or fails together; each offer can still be accepted or cancelled separately.",
   "每份押金：{amount} ETH（价格 + 补偿）": "Deposit per offer: {amount} ETH (price + compensation)",
-  "剩余需锁定押金：{amount} ETH，另计 Gas。": "Remaining deposits: {amount} ETH, plus gas.",
-  "已发布 {done} / {total} 份": "Published {done} of {total} offers",
-  "继续剩余挂单": "Continue remaining offers",
-  "批量发布已停止，请重新打开挂单表单。": "Batch publishing stopped. Please reopen the offer form."
+  "总押金：{amount} ETH，另计 Gas。": "Total deposit: {amount} ETH, plus gas.",
+  "检查交易结果": "Check transaction status",
+  "交易已提交，请等待确认；请勿重复发布。": "Transaction submitted. Wait for confirmation; do not publish another batch.",
+  "挂单表单已关闭，请重新打开。": "The offer form was closed. Please reopen it."
 }

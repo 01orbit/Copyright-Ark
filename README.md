@@ -1,151 +1,111 @@
-# Copyright Ark · Copyright Management DApp
+# Copyright Ark
 
-这是一个适合本科 Web3 入门课的版权管理 DApp：用户在本地计算作品文件的 SHA-256 指纹并登记权利声明；登记人可以发布有期限的使用许可，并在挂单时锁定 `价格 + 固定补偿` 的押金。如果作者提前撤销，合约按剩余期限把退款和补偿记入买家余额；管理员依线下案件撤销登记时，尚未终止的许可押金全部给买家。
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-> 本平台记录权利声明与授权，不自动审核真实权属。登记不是现实版权确权。
+A small copyright management DApp for an undergraduate Web3 course. Register file fingerprints, publish non-exclusive license offers, purchase licenses, and manage deposits and copyright cases. The interface defaults to English and supports Chinese.
 
-## 项目结构
+Registration records a rights declaration, not proof of legal ownership. This project is for Hardhat local testing and Ethereum Sepolia, not production use.
 
-- `contracts/`：Hardhat 3 + Solidity 0.8.28 + OpenZeppelin 5 合约工程。
-- `frontend/`：Vite + React + TypeScript + Wagmi/Viem，使用 Tailwind CSS 4 + HeroUI 3。
-- `docs/`：规划书、标准许可条款和交付说明。
+## Features and structure
 
-Node 基线写在 `.nvmrc`（当前验证版本：Node 24.15.0）。合约与前端独立构建，前端只读取 `src/generated/` 中导出的 ABI。
+- SHA-256 hashing in the browser; original files are never uploaded. Optional public HTTP(S) reference links are stored on-chain.
+- Create **1–20 identical offers with one transaction and one wallet confirmation**. Each offer can be purchased or cancelled independently.
+- Author deposit: `(price + fixed compensation) × quantity`. Buyers pay the license price separately. Early revocation refunds the unused price plus compensation from the deposit.
+- Filtered, paginated offers and licenses; historical license checks; claimable balances and withdrawals.
+- Owner-authorized administrators and copyright cases, with a separately funded case reward pool.
 
-准备让助教直接通过网址测试时，按 [Cloudflare 首次部署教程](docs/DEPLOY-CLOUDFLARE.md) 操作；先在本机测试本地链，再部署 Pages 验收 Sepolia。线上版本固定 Sepolia，本机前端才允许切换本地链与 Sepolia。
+| Directory | Contents |
+| --- | --- |
+| `contracts/` | Solidity, Hardhat 3, deployment scripts, local samples and tests |
+| `frontend/` | React, TypeScript, Vite, Tailwind CSS 4, HeroUI 3 and Wagmi/Viem |
+| `docs/` | Requirements, license terms and detailed deployment/testing guides |
 
-## 本地链快速运行
+Business data lives in `CopyrightMarket`. There is no application backend, database, file storage or R2 dependency. MetaMask signs frontend transactions.
+
+## Local version
+
+Use Node.js **24.15.0** (`.nvmrc`), npm and MetaMask. Run all commands from the repository root.
 
 ```bash
-# 终端 1：安装并启动本地链
 npm ci --prefix contracts
-npm run node --prefix contracts
+npm ci --prefix frontend
+```
 
-# 终端 2：编译、测试、部署
+**Terminal 1:** start the blockchain and keep it running.
+
+```bash
+npm run node --prefix contracts
+```
+
+**Terminal 2:** compile, deploy samples and export the frontend interface.
+
+```bash
 npm run build --prefix contracts
-npm test --prefix contracts
-npm run deploy:local --prefix contracts
+npm run seed:local --prefix contracts
 npm run export-interface --prefix contracts
 ```
 
-把部署脚本输出的合约地址填入 `frontend/.env`：
+Samples include 30 works, 58 offers, 24 licenses and 3 cases, with English metadata. The script does not advance time. For an empty deployment, replace `seed:local` with `deploy:local`.
+
+Create or edit `frontend/.env` using its example as a template:
 
 ```dotenv
 VITE_DEFAULT_CHAIN_ID=31337
 VITE_LOCAL_RPC_URL=http://127.0.0.1:8545
-VITE_LOCAL_MARKET_ADDRESS=部署输出的0x地址
+VITE_LOCAL_MARKET_ADDRESS=
 VITE_SEPOLIA_MARKET_ADDRESS=
 ```
 
-然后启动前端：
-
-```bash
-npm ci --prefix frontend
-npm run dev --prefix frontend
-```
-
-MetaMask 添加网络：RPC `http://127.0.0.1:8545`，Chain ID `31337`，货币符号 `ETH`。只使用 Hardhat 输出的本地测试账户；这些私钥不能用于 Sepolia 或主网。可以用 `npm run seed:local --prefix contracts` 代替空合约部署，生成 30 件作品、58 笔不同状态的挂单、24 份许可和 3 件案件，其中作品 #1、#25、#26 各有三种常规可接受挂单。然后执行 `npm run export-interface --prefix contracts`；本地合约地址覆盖值留空即可使用导出地址。脚本只允许在本地链运行，同一节点上重复执行会拒绝；不修改链上时间，短期示例按真实时间等待到期。账户、样例编号和验证方法见 [本地样例测试指南](docs/LOCAL-SAMPLES.md)。
-
-## Sepolia 测试网（PublicNode，无需 Remix）
-
-Hardhat 和前端已默认使用 [PublicNode 的免费 Sepolia HTTP RPC](https://ethereum.publicnode.com/?sepolia)：`https://ethereum-sepolia-rpc.publicnode.com`。无需注册或 API Key，也不需要额外安装 SDK。公共 RPC 可能限流或暂时不可用；可以通过下面的环境变量替换服务商。
-
-所有 `npm` 命令都在项目根目录执行。先运行只读连接检查；不需要私钥或测试币，也不会部署合约：
-
-```bash
-npm run check:sepolia --prefix contracts
-```
-
-检查成功会打印 Chain ID `11155111` 和最新区块号。若失败，检查网络连接，或在 `contracts/.env` 设置其他 Sepolia RPC 后重试。
-
-### 1. 准备测试部署钱包
-
-将 `contracts/.env.example` 复制为 `contracts/.env`（已有文件就直接编辑），填写持有 Sepolia 测试 ETH 的独立测试钱包：
-
-```dotenv
-SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
-DEPLOYER_PRIVATE_KEY=0x你的专用测试钱包私钥
-INITIAL_ADMIN_ADDRESS=0x你的MetaMask测试钱包地址
-```
-
-`INITIAL_ADMIN_ADDRESS` 可留空，默认由部署钱包担任管理员。私钥只存放于本机 `contracts/.env`，不要发送给他人，也不要写进前端 `VITE_*` 配置。不要使用 Hardhat 的公开本地私钥部署到 Sepolia。PublicNode 免费提供 RPC 访问，部署和写交易仍然需要测试 ETH 支付 Gas。
-
-### 2. 编译、部署、导出地址
-
-```bash
-npm run build --prefix contracts
-npm run deploy:sepolia --prefix contracts
-npm run export:sepolia --prefix contracts
-npm run smoke:sepolia --prefix contracts
-```
-
-部署脚本等待真实交易回执，再将合约地址、交易哈希、部署区块和代码指纹写入 `contracts/deployments/11155111.json`，并打印 Sepolia Etherscan 链接。每次执行部署命令都会创建新的合约实例，测试 ETH 消耗取决于网络 Gas。
-
-`export:sepolia` 把 ABI 和部署地址导出至前端，同时保留已有本地链地址。`smoke:sepolia` 只读检查合约代码、管理员和条款版本，不发送收费交易。
-
-### 3. 启动前端并连接 MetaMask
-
-将 `frontend/.env.example` 复制为 `frontend/.env`（已有文件就直接编辑），设置：
-
-```dotenv
-VITE_DEFAULT_CHAIN_ID=11155111
-VITE_SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
-VITE_SEPOLIA_MARKET_ADDRESS=
-```
-
-执行过 `export:sepolia` 后，合约地址可以留空，前端会读取导出记录；也可以在 `VITE_SEPOLIA_MARKET_ADDRESS` 填写真实地址来覆盖记录。修改 `.env` 后重新启动前端：
+Blank addresses use `frontend/src/generated/deployments.json`; remove stale address overrides after redeploying. Then start Vite:
 
 ```bash
 npm run dev --prefix frontend
 ```
 
-使用安装了 MetaMask 扩展的浏览器打开本地网页，连接测试钱包并切换到 Sepolia。换用作者、买家等不同账户测试登记、挂单、接受许可和提现。需要测试管理员案件报酬时，在管理台单独给费用池注资；部署不会自动注资。
+Open the URL printed by Vite. In MetaMask, add RPC `http://127.0.0.1:8545`, chain ID `31337`, currency `ETH`, and import Hardhat test accounts. These publicly known private keys must never be used on public networks. The developer menu allows switching the local frontend between Hardhat and Sepolia.
 
-完成部署并执行地址导出后，前端可继续运行在本机，合约和交易实际存在于 Sepolia，不需要启动 Hardhat 本地节点。当前前端默认使用 `11155111`（Sepolia）；本地开发仍可在 `.env` 中将 `VITE_DEFAULT_CHAIN_ID` 改为 `31337`，并填写本地合约地址后重启。若要发布前端，运行 `npm run build --prefix frontend` 后托管 `frontend/dist/`。
+Stop servers with `Ctrl+C` in their terminals. Stopping Hardhat loses its in-memory chain state; restart it, rerun the sample/export commands, and refresh the frontend.
 
-## 前端页面
+## Cloudflare / Sepolia version
 
-界面使用 Tailwind CSS 4 + HeroUI 3，采用灰白与蓝色点缀。按钮、卡片、标签、输入框、下拉框、复选框、折叠条款和弹窗统一使用 HeroUI 组件；`src/components/ui.tsx` 提供少量共享表单包装，页面里仍然就地保留字段含义和布局。布局和间距直接写 Tailwind 类，不另建样式系统。
+Cloudflare hosts static files, not Hardhat. Hosted websites, including custom domains, use **Sepolia only**.
 
-前端阅读顺序：`src/App.tsx` 查看路由，`src/pages/` 查看各页；`src/components/` 复用导航、表单外壳和挂单组件；`src/market.tsx` 集中处理合约类型、网络选择与交易确认。`src/styles.css` 仅保留库的导入、主题变量和少量基础控件样式。作品列表使用紧凑的文字卡片；登记人可以填写可选 HTTP(S) 参考链接，链接作为公开字段写入合约。平台不保存或展示作品封面，也不保存原始作品文件。
+1. Create `contracts/.env` from its example. Set `DEPLOYER_PRIVATE_KEY` to a dedicated Sepolia test wallet key and fund that wallet with test ETH. Set `INITIAL_ADMIN_ADDRESS` to the intended owner's public address. PublicNode RPC is the default; `ETHERSCAN_API_KEY` is optional and unnecessary for deployment.
+2. Deploy and export:
 
-- `/`：独立首页，仅显示项目介绍和“进入”按钮，不显示导航和页脚。
-- `/discover`：最新作品、标题搜索、类别筛选和已撤销开关；业务页面左上角 Logo 返回首页。
-- `/register`：本地文件格式/大小/UTF-8 字节检查、SHA-256 指纹、登记交易。
-- `/works/:id`：作品详情、可用挂单筛选与分页、接受许可及历史记录。
-- `/offers`：个人挂单、批量创建、撤销挂单及提前终止许可。
-- `/verify`：无需连接钱包即可按地址和 Work ID 查询许可，可指定历史时间。
-- `/account`：可领取余额、锁定押金和提现。
-- `/admin`：管理员录入案件、提交维持/撤销结果，并可注资独立费用池。
-- `/dev`：开发者菜单，可从顶栏进入；任意页面按 `Alt + Shift + D` 也可打开。菜单中的业务网络开关会同步切换所有页面的 RPC、合约地址、链上读取和交易目标；连接钱包时会同时请求 MetaMask 切换网络。
+   ```bash
+   npm run build --prefix contracts
+   npm test --prefix contracts
+   npm run deploy:sepolia --prefix contracts
+   npm run export:sepolia --prefix contracts
+   npm run smoke:sepolia --prefix contracts
+   ```
 
-页面右上角提供“EN / 中”语言切换，首次进入默认使用英文。首页和所有业务页面的导航、表单、状态提示、许可条款与开发者菜单都支持中文和英文；选择保存在当前浏览器，刷新页面后继续使用。作品标题、简介和测试地址等用户输入不会因为切换语言而丢失。
+3. Commit source changes, `contracts/deployments/11155111.json` and `frontend/src/generated/`. Never commit `.env`, private keys or recovery phrases.
+4. Connect the repository to Cloudflare with these settings:
 
-作者创建挂单时可输入 1–20 份，批量生成同配置的独立挂单。每份分别锁定押金并请求 MetaMask 确认；中断后可继续剩余份数。作品详情的可接受挂单支持价格、期限及搜索组合筛选，每页 8 条。
+   | Setting | Workers | Pages |
+   | --- | --- | --- |
+   | Root directory | Repository root | Repository root |
+   | Build command | `npm ci --prefix frontend && npm run build --prefix frontend` | Same |
+   | Deploy command | `npx wrangler deploy` | Not required |
+   | Static output | Set by `wrangler.jsonc`: `frontend/dist` | `frontend/dist` |
 
-### 链上数据边界
+5. Set **build environment variables**: `NODE_VERSION=24.15.0`, `VITE_DEFAULT_CHAIN_ID=11155111`, `VITE_SEPOLIA_MARKET_ADDRESS=<new Sepolia address>`, and optionally `VITE_SEPOLIA_RPC_URL`. Trigger a fresh build; runtime-only variables cannot change the built Vite app. Do not put private keys in Cloudflare or `VITE_*` variables.
+6. Open the deployment URL with MetaMask on Sepolia (`11155111`). Register a work, create three offers with one confirmation, then accept an offer with another wallet. Check revocation, deposits and withdrawals. Extra administrators require an owner-signed synchronization in `/dev`.
 
-作品登记、作品标题与简介、参考链接、文件哈希、授权挂单、许可记录、案件处理、管理员名单、余额和提现都由 `CopyrightMarket` 合约保存或执行；前端通过当前网络的 RPC 读取，交易由 MetaMask 签名。参考链接、作品元数据和管理员名单都是公开的链上数据，不要填写私人地址或访问令牌。原始作品文件只在浏览器中计算 SHA-256，不上传也不写入合约。语言选择和开发者菜单中的地址草稿属于浏览器辅助配置，不是权限本身。
+**Existing deployments:** this version adds `createOffers`, which older contracts do not support. Redeploy, export, update Cloudflare's contract address and rebuild. Environment address overrides take priority over exported records. The new contract starts empty; old works, balances and permissions stay at the old address. Save that address and handle old funds before switching. Reauthorize extra administrators on the new contract. Local samples are never automatically created on Sepolia.
 
-### 开发者测试菜单
+## Checks and guides
 
-开发者菜单使用的默认地址草稿放在 `frontend/src/dev/test-accounts.json`，按本地链（`31337`）和 Sepolia（`11155111`）分别配置管理员地址。每个网络可以填写多个管理员公开地址；本地链预填 Hardhat 部署账户，Sepolia 默认留空。作者和买家不需要预先配置，直接使用当前连接的钱包即可。配置文件只保存钱包**公开地址**，不保存私钥或助记词。
+```bash
+npm test --prefix contracts
+npm test --prefix frontend -- --run
+npm run build --prefix frontend
+```
 
-合约脚本使用 `contracts/test-accounts.json` 读取管理员、作者和买家地址，以便部署与本地样例脚本生成可重复的演示数据。前端开发者菜单不读取作者和买家配置；这些钱包可以在 MetaMask 中任意选择。开发者菜单中的管理员草稿只有在 owner 签名同步交易后才会变成链上权限。
+Current suite: 10 contract tests and 26 frontend tests. Real MetaMask confirmations and Sepolia transactions still require manual testing.
 
-助教打开 `/dev` 后，选择网络，在管理员地址文本框中按行填写一个或多个公开地址，再点击“同步链上管理员”。当前合约 owner 必须在 MetaMask 中确认交易；确认后地址写入所选网络的合约，其他浏览器也能读取并使用这些管理员权限。删除地址后再次同步即可撤销额外管理员权限；owner 始终保留权限。地址草稿会保存在当前网站的 `localStorage` 中，点击“恢复默认”只恢复本地草稿，不改变链上名单。旧版包含作者和买家字段的配置仍可读取，但这些字段会被忽略。
-
-菜单可读取链上 owner 和额外管理员，并显示当前钱包是否具有真实管理员权限。同步管理员名单会发起链上交易，不是本地标记；只有 owner 可以修改名单，管理员可以使用管理台录入和处理案件。管理员权限只在重新部署了支持该功能的新合约后可用。
-
-## 验证记录
-
-已在本环境完成：
-
-- `npm run build --prefix contracts`：Solidity 编译通过，启用 IR 优化后部署字节码低于 EIP-170 限制。
-- `npm test --prefix contracts`：多管理员授权、登记、参考链接校验、押金挂单、接受、作者提前撤销分账、案件费用池隔离，共 7 个测试通过。
-- `npm run build --prefix frontend`：TypeScript 检查和 Vite 生产构建通过。
-- `npm test --prefix frontend -- --run`：共 25 项测试通过，覆盖批量发布与中断恢复、挂单筛选分页、网络策略、英文默认语言及业务校验。
-- PublicNode Sepolia 只读检查成功（2026-10-30，Chain ID `11155111`）；隔离本地链验证部署回执、地址导出保留其他网络、缺少私钥时拒绝部署均通过。
-- Hardhat 本地节点真实部署和前端样例联调已成功；本地地址由每次部署脚本输出（本地节点重启后会变化，不能用于 Sepolia）。
-
-浏览器扩展签名、Sepolia 真实部署和测试 ETH 依赖你自己的 MetaMask 与 RPC 配置，未在没有授权账户的情况下伪造为已完成。
+- [Detailed Cloudflare deployment and testing guide (Chinese)](docs/DEPLOY-CLOUDFLARE.md)
+- [Local sample accounts and scenarios (Chinese)](docs/LOCAL-SAMPLES.md)
+- [Cloudflare Workers build settings](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)

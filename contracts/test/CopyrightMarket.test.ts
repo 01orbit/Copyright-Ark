@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { network } from "hardhat";
-import { parseEther } from "viem";
+import { decodeEventLog, parseEther } from "viem";
 
 describe("CopyrightMarket", async () => {
   const { viem } = await network.connect();
@@ -117,5 +117,75 @@ describe("CopyrightMarket", async () => {
     assert.equal(await multiMarket.read.getLicenseStatus([1n]), 2);
     assert.equal(await multiMarket.read.getLicenseStatus([2n]), 1);
     assert.equal(await multiMarket.read.totalLockedDeposits(), deposit);
+  });
+
+  async function batchFixture() {
+    const contract = await viem.deployContract("CopyrightMarket", [admin.account.address, 0n, 0n]);
+    await contract.write.registerWork([hash, "Community Science Poster", "A classroom poster", 1, ""], { account: seller.account });
+    const client = await viem.getPublicClient();
+    const price = parseEther("0.001");
+    const compensation = parseEther("0.0002");
+    const args = [1n, price, 86400n, compensation, (await client.getBlock()).timestamp + 86400n, "non-exclusive"] as const;
+    return { contract, client, price, deposit: price + compensation, args };
+  }
+
+  it("creates a batch in one transaction with distinct terms and independent settlement", async () => {
+    const { contract, client, price, deposit, args } = await batchFixture();
+    const tx = await contract.write.createOffers([...args, 3n], { account: seller.account, value: deposit * 3n });
+    const receipt = await client.waitForTransactionReceipt({ hash: tx });
+    const events = receipt.logs.map((log) => decodeEventLog({ abi: contract.abi, ...log }));
+    assert.equal(events.filter((event) => event.eventName === "OfferCreated").length, 3);
+    assert.equal(await contract.read.nextOfferId(), 4n);
+    assert.deepEqual(await contract.read.getOfferIdsByWork([1n, 0n, 50n]), [[1n, 2n, 3n], 3n]);
+    assert.deepEqual(await contract.read.getOfferIdsBySeller([seller.account.address, 0n, 50n]), [[1n, 2n, 3n], 3n]);
+    assert.deepEqual(await contract.read.getAccounting(), [deposit * 3n, deposit * 3n, 0n, 0n, 0n, 0n]);
+    const first = await contract.read.getOffer([1n]);
+    const second = await contract.read.getOffer([2n]);
+    assert.notEqual(first.termsHash, second.termsHash);
+    await assert.rejects(() => contract.write.acceptOffer([2n, first.termsHash], { account: buyer.account, value: price }));
+    await contract.write.cancelOffer([3n], { account: seller.account });
+    await contract.write.acceptOffer([1n, first.termsHash], { account: buyer.account, value: price });
+    await contract.write.acceptOffer([2n, second.termsHash], { account: other.account, value: price });
+    await contract.write.revokeLicense([1n], { account: seller.account });
+    assert.equal(await contract.read.getLicenseStatus([2n]), 1);
+    assert.equal(await contract.read.totalLockedDeposits(), deposit);
+    assert.equal(await contract.read.getOfferStatus([3n]), 3);
+    const [balance, locked, credits, pool, , surplus] = await contract.read.getAccounting();
+    assert.equal(balance, locked + credits + pool);
+    assert.equal(surplus, 0n);
+  });
+
+  it("supports the batch boundaries of one and twenty offers", async () => {
+    const { contract, client, deposit, args } = await batchFixture();
+    for (const quantity of [1n, 20n]) {
+      const scope = quantity === 20n ? "x".repeat(512) : args[5];
+      const tx = await contract.write.createOffers([args[0], args[1], args[2], args[3], args[4], scope, quantity], { account: seller.account, value: deposit * quantity });
+      const receipt = await client.waitForTransactionReceipt({ hash: tx });
+      assert.equal(receipt.status, "success");
+      assert.ok(receipt.gasUsed < 16_777_216n, "The largest batch must fit the transaction gas limit");
+    }
+    assert.equal(await contract.read.nextOfferId(), 22n);
+    assert.equal(await contract.read.totalLockedDeposits(), deposit * 21n);
+    assert.equal((await contract.read.getOffer([21n])).scope, "x".repeat(512));
+  });
+
+  it("rejects invalid batches without creating offers or taking deposits", async () => {
+    const { contract, deposit, args } = await batchFixture();
+    for (const quantity of [0n, 21n]) {
+      await assert.rejects(() => contract.write.createOffers([...args, quantity], { account: seller.account, value: deposit * quantity }));
+    }
+    for (const value of [deposit, deposit * 3n - 1n, deposit * 3n + 1n]) {
+      await assert.rejects(() => contract.write.createOffers([...args, 3n], { account: seller.account, value }));
+    }
+    await assert.rejects(() => contract.write.createOffers([...args, 3n], { account: buyer.account, value: deposit * 3n }));
+    await assert.rejects(() => contract.write.createOffers([99n, args[1], args[2], args[3], args[4], args[5], 3n], { account: seller.account, value: deposit * 3n }));
+    await assert.rejects(() => contract.write.createOffers([1n, args[1], 0n, args[3], args[4], args[5], 3n], { account: seller.account, value: deposit * 3n }));
+    await assert.rejects(() => contract.write.createOffers([1n, args[1], args[2], args[3], 1n, args[5], 3n], { account: seller.account, value: deposit * 3n }));
+    await assert.rejects(() => contract.write.createOffers([1n, args[1], args[2], args[3], args[4], "", 3n], { account: seller.account, value: deposit * 3n }));
+    // Bypass gas estimation; Hardhat reports the mined revert as an RPC error.
+    await assert.rejects(() => contract.write.createOffers([...args, 3n], { account: seller.account, value: deposit, gas: 8_000_000n }));
+    assert.equal(await contract.read.nextOfferId(), 1n);
+    assert.deepEqual(await contract.read.getOfferIdsByWork([1n, 0n, 50n]), [[], 0n]);
+    assert.deepEqual(await contract.read.getAccounting(), [0n, 0n, 0n, 0n, 0n, 0n]);
   });
 });

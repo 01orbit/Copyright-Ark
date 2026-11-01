@@ -131,9 +131,7 @@ export function OfferModal({
   const client = usePublicClient({ chainId });
   const [publishing, setPublishing] = useState(false);
   const [quantity, setQuantity] = useState("1");
-  const [completed, setCompleted] = useState(0);
   const pendingHash = useRef<Hash | undefined>(undefined);
-  const deadline = useRef<bigint | undefined>(undefined);
   const active = useRef(true);
   useEffect(() => {
     active.current = true;
@@ -172,29 +170,24 @@ export function OfferModal({
     if (!valid || !address || !client || busy) return;
     setPublishing(true);
     try {
-      for (let index = completed; index < count; index++) {
-        if (!active.current) return;
-        const success = await transaction.run(async () => {
-          // 回执超时后继续等待同一交易，避免重复发布；钱包拒绝后只重试剩余份数。
-          if (pendingHash.current) return pendingHash.current;
-          deadline.current ??= (await client.getBlock()).timestamp + 86400n;
-          if (!active.current) throw new Error("批量发布已停止，请重新打开挂单表单。");
-          pendingHash.current = await writeContractAsync({
-            address, abi, functionName: "createOffer", chainId, account,
-            value: deposit,
-            args: [work.id, parseEthSafe(price), BigInt(Number(days) * 86400), parseEthSafe(compensation), deadline.current, scope.trim()],
-          });
-          return pendingHash.current;
+      const success = await transaction.run(async () => {
+        // A receipt timeout retries confirmation of the same transaction, not publication.
+        if (pendingHash.current) return pendingHash.current;
+        const deadline = (await client.getBlock()).timestamp + 86400n;
+        if (!active.current) throw new Error(t("挂单表单已关闭，请重新打开。"));
+        pendingHash.current = await writeContractAsync({
+          address, abi, functionName: "createOffers", chainId, account,
+          value: deposit * BigInt(count),
+          args: [work.id, parseEthSafe(price), BigInt(Number(days) * 86400), parseEthSafe(compensation), deadline, scope.trim(), BigInt(count)],
         });
-        if (!success) {
-          if (pendingHash.current) {
-            const receipt = await client.getTransactionReceipt({ hash: pendingHash.current }).catch(() => undefined);
-            if (receipt?.status === "reverted") pendingHash.current = undefined;
-          }
-          return;
+        return pendingHash.current;
+      });
+      if (!success) {
+        if (pendingHash.current) {
+          const receipt = await client.getTransactionReceipt({ hash: pendingHash.current }).catch(() => undefined);
+          if (receipt?.status === "reverted") pendingHash.current = undefined;
         }
-        pendingHash.current = undefined;
-        setCompleted(index + 1);
+        return;
       }
       if (active.current) onClose();
     } finally {
@@ -223,13 +216,13 @@ export function OfferModal({
               </div>
             </Modal.Header>
             <Modal.Body className="space-y-5">
-              <p className="text-sm text-muted">{t("可批量发布相同配置的挂单，每份均为独立的非独占授权。每份需要一次钱包确认并支付押金及 Gas；中途取消后可继续剩余份数。")}</p>
+              <p className="text-sm text-muted">{t("相同配置的挂单只需一次钱包确认，一次支付总押金及 Gas。整批全部成功或全部失败；每份挂单仍可独立接单和撤销。")}</p>
               {!isRegistrant && (
                 <Notice>
                   {t("只有作品登记人可以创建挂单，请切换钱包账户。")}
                 </Notice>
               )}
-              <fieldset disabled={busy || completed > 0 || !!pendingHash.current} className="space-y-5 disabled:opacity-70">
+              <fieldset disabled={busy || !!pendingHash.current} className="space-y-5 disabled:opacity-70">
                 <Field label={t("批量份数")} hint={t("每次 1–20 份，默认为 1 份。价格和补偿均为每份金额。")}>
                   <FormInput type="number" min={1} max={20} step={1} value={quantity} onChange={(event) => setQuantity(event.target.value)} />
                 </Field>
@@ -280,8 +273,8 @@ export function OfferModal({
                 </Field>
               </fieldset>
               <p className="text-sm">{t("每份押金：{amount} ETH（价格 + 补偿）", { amount: formatEth(deposit, locale) })}</p>
-              <p className="text-sm font-semibold">{t("剩余需锁定押金：{amount} ETH，另计 Gas。", { amount: formatEth(validCount ? deposit * BigInt(count - completed) : 0n, locale) })}</p>
-              <p role="status" className="text-sm">{t("已发布 {done} / {total} 份", { done: completed, total: validCount ? count : 0 })}</p>
+              <p className="text-sm font-semibold">{t("总押金：{amount} ETH，另计 Gas。", { amount: formatEth(validCount ? deposit * BigInt(count) : 0n, locale) })}</p>
+              {pendingHash.current && <p role="status" className="break-all text-xs text-muted">{t("交易已提交，请等待确认；请勿重复发布。")}</p>}
               <Notice>{transaction.message}</Notice>
             </Modal.Body>
             <Modal.Footer className="pt-0">
@@ -290,7 +283,7 @@ export function OfferModal({
                 isDisabled={!valid || busy}
                 onPress={submit}
               >
-                {busy ? t("发布中…") : completed > 0 || pendingHash.current ? t("继续剩余挂单") : t("锁定押金并发布")}
+                {busy ? t("发布中…") : pendingHash.current ? t("检查交易结果") : t("锁定押金并发布")}
               </Button>
             </Modal.Footer>
           </Modal.Dialog>

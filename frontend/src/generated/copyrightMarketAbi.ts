@@ -97,6 +97,11 @@ export const copyrightMarketAbi = [
   },
   {
     "inputs": [],
+    "name": "InvalidQuantity",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidReferenceUrl",
     "type": "error"
   },
@@ -770,6 +775,19 @@ export const copyrightMarketAbi = [
   },
   {
     "inputs": [],
+    "name": "MAX_BATCH_SIZE",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "MAX_DURATION",
     "outputs": [
       {
@@ -966,6 +984,55 @@ export const copyrightMarketAbi = [
       {
         "internalType": "uint256",
         "name": "id",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "workId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "price",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint64",
+        "name": "duration",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint256",
+        "name": "compensation",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint64",
+        "name": "acceptUntil",
+        "type": "uint64"
+      },
+      {
+        "internalType": "string",
+        "name": "scope",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "quantity",
+        "type": "uint256"
+      }
+    ],
+    "name": "createOffers",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "firstOfferId",
         "type": "uint256"
       }
     ],
