@@ -8,6 +8,14 @@
       "runtimeCodeHash": "0xef525729e2adfd2c09a24d25924e55145150d1b400dc9bedd822277d65e4580d",
       "deployedAt": "2026-11-01T05:39:16.166Z",
       "termsVersion": "CopyrightLicenseTerms/v1"
+    },
+    "11155111": {
+      "address": "0x8b5fbcd98f9643ea0f0d87bc7aeaf4ac05e40732",
+      "deploymentBlock": "12039057",
+      "deploymentTxHash": "0x1b4f00c04d30c06cfa3800c5a79494c7e24924be6b2fdadab0d8e5c152480207",
+      "runtimeCodeHash": "0xef525729e2adfd2c09a24d25924e55145150d1b400dc9bedd822277d65e4580d",
+      "deployedAt": "2026-11-01T05:58:29.470Z",
+      "termsVersion": "CopyrightLicenseTerms/v1"
     }
   }
 }
