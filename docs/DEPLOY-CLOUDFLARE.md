@@ -190,13 +190,15 @@ git push
 
 5. 点击 **Save and Deploy**。等构建状态显示成功后，打开 Cloudflare 提供的 `https://<项目名>.pages.dev` 地址。Git 集成部署和构建目录的配置细节见 [Cloudflare Pages 官方指南](https://developers.cloudflare.com/pages/get-started/git-integration/)。
 
-6. 在 Pages 网址刷新 `/discover`、`/offers`、`/works/1` 等子路径，确认 React 路由仍能打开。项目通过 `frontend/public/_redirects` 将路由交给单页应用处理；如果深层链接刷新得到 404，确认该文件已提交且出现在构建产物中。
+6. 在 Pages 网址刷新 `/discover`、`/offers`、`/works/1` 等子路径，确认 React 路由仍能打开。项目没有顶层 `404.html`，Pages 会自动使用 SPA 回退，不需要额外的 `_redirects` 规则。[Pages 官方路由说明](https://developers.cloudflare.com/pages/configuration/serving-pages/)
 
 ### 4.1 如果已经创建的是 Workers 项目
 
 日志出现 `/workers/scripts/.../assets-upload-session` 或设置页面要求填写 **Deploy command**，说明当前使用的是 Workers。可以继续使用，不需要重新创建 Pages 项目或升级套餐。
 
 仓库根目录的 `wrangler.jsonc` 已指定只发布 `frontend/dist`，并为 React 子页面配置 SPA 回退。Workers 构建设置填写：
+
+不要添加 `/* /index.html 200` 这样的 `_redirects` 通配规则；Workers 可能将其判为循环。项目使用 `assets.not_found_handling = "single-page-application"` 处理子页面，不需要这条规则。若日志提示 `Invalid _redirects configuration`，确认已提交删除 `frontend/public/_redirects` 的改动并重新构建，不能继续上传旧的 `dist`。
 
 | 设置 | 值 |
 | --- | --- |
