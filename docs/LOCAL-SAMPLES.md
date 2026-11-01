@@ -32,7 +32,7 @@ npm run build --prefix contracts && npm run seed:local --prefix contracts && npm
 | 第二作者 | #3，`0x90F7…b906` | 6 件作品、8 笔可接受挂单，便于检查账户隔离 |
 | 第二买家 | #4，`0x15d3…6A65` | 4 份许可，便于检查不同被授权钱包 |
 
-把需要的账户用 Hardhat 终端输出的对应私钥导入 MetaMask，只用于本地链。前端开发者菜单的地址列表只是角色提示；要核对第二作者、第二买家，可把其公开地址加入对应角色列表。
+把需要的账户用 Hardhat 终端输出的对应私钥导入 MetaMask，只用于本地链。前端开发者菜单只配置管理员地址草稿，由当前 owner 签名同步后才会赋予链上权限；作者、买家直接切换 MetaMask 中对应账户，不需要添加到前端配置。脚本使用的作者和买家配置仍保留在 `contracts/test-accounts.json`。
 
 ## 数据和编号
 
