@@ -7,7 +7,6 @@ import english from "./en.json";
 import LanguageSwitch from "../components/LanguageSwitch";
 import { Notice } from "../components/ui";
 import { categories, formatDate, licenseStatusLabel, offerStatusLabel, validateFile } from "../domain";
-import { roles } from "../dev/test-accounts";
 
 beforeEach(() => {
   localStorage.clear();
@@ -18,7 +17,7 @@ afterEach(() => vi.unstubAllGlobals());
 it("covers page copy, dynamic categories and statuses with matching placeholders", () => {
   const sources = import.meta.glob<string>("../{pages,components}/*.tsx", { query: "?raw", import: "default", eager: true });
   const keys = Object.values(sources).flatMap((source) => [...source.matchAll(/\bt\("([^"\n]+)"/g)].map((match) => match[1]));
-  keys.push(...categories.slice(1), ...roles.map(([, label]) => label), validateFile());
+  keys.push(...categories.slice(1), "管理员", validateFile());
   for (let status = 0; status <= 6; status++) keys.push(offerStatusLabel(status), licenseStatusLabel(status));
   for (const key of keys) expect(english, key).toHaveProperty(key);
   for (const [key, value] of Object.entries(english)) {
@@ -28,7 +27,6 @@ it("covers page copy, dynamic categories and statuses with matching placeholders
 
 it("formats variable messages and dates without changing user content", () => {
   expect(translate("{count} 次授权", "en", { count: 3n })).toBe("3 licenses");
-  expect(translate("{role}地址", "en", { role: "Author" })).toBe("Author address");
   expect(translate("我的作品 {title}", "en")).toBe("我的作品 {title}");
   expect(formatDate(1704067200, "en-US")).not.toBe(formatDate(1704067200, "zh-CN"));
   expect(readLanguage()).toBe("en");

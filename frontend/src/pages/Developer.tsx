@@ -1,7 +1,6 @@
 import { useLanguage } from "../i18n";
 import { Button, Chip, Switch } from "@heroui/react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAccount, useReadContract } from "wagmi";
 import { localChainEnabled, marketAddress } from "../config";
 import { abi, useMarket, useNetwork } from "../market";
@@ -15,7 +14,6 @@ import {
 import {
   loadAccounts,
   resetAccounts,
-  roles,
   saveAccounts,
   type TestAccounts,
   type TestChain,
@@ -39,10 +37,11 @@ export default function Developer() {
     chainId,
     query: { enabled: !!contract },
   });
-  const matched = roles.filter(
-    ([role]) =>
-      wallet &&
-      accounts[role].some((address) => address.toLowerCase() === wallet.toLowerCase()),
+  const isConfiguredAdmin = Boolean(
+    wallet &&
+      accounts.admin.some(
+        (address) => address.toLowerCase() === wallet.toLowerCase(),
+      ),
   );
 
   useEffect(() => {
@@ -69,7 +68,7 @@ export default function Developer() {
     <>
       <PageHeading title={t("开发者菜单")}>
         {t(
-          "测试账户配置 · Alt + Shift + D 打开 · 地址仅用于测试提示，不改变链上权限。",
+          "管理员地址配置 · Alt + Shift + D 打开 · 地址仅用于核对提示，不改变链上权限。",
         )}
       </PageHeading>
       <Panel title={t("当前业务网络")}>
@@ -101,14 +100,12 @@ export default function Developer() {
         {switchError && <Notice>{t("钱包切网失败，请检查 MetaMask。")}</Notice>}
       </Panel>
       <div className="grid items-start gap-6 lg:grid-cols-[3fr_2fr]">
-        <Panel title={t("测试地址")}>
+        <Panel title={t("管理员地址")}>
           <p className="text-sm text-muted">
             {t("当前配置网络：")} {chain === "31337" ? t("本地链") : "Sepolia"}
           </p>
           <p className="text-sm text-muted">
-            {t(
-              "本地链预填 Hardhat 演示账户；Sepolia 默认留空。每个角色可填写多个公开地址，每行一个；不要填写私钥或助记词。",
-            )}
+            {t("可填写多个管理员公开地址，每行一个；作者和买家可使用任意连接的钱包。不要填写私钥或助记词。")}
           </p>
           <form
             className="space-y-5"
@@ -120,26 +117,24 @@ export default function Developer() {
               );
             }}
           >
-            {roles.map(([role, label]) => (
-              <Field key={role} label={t("{role}地址", { role: t(label) })}>
-                <FormTextArea
-                  className="w-full font-mono text-sm"
-                  value={accounts[role].join("\n")}
-                  placeholder={t("每行一个 0x…（可留空）")}
-                  rows={3}
-                  autoComplete="off"
-                  spellCheck={false}
-                  onChange={(event) => {
-                    const addresses = event.target.value
-                      .split(/[\s,]+/)
-                      .map((address) => address.trim())
-                      .filter(Boolean);
-                    setAccounts({ ...accounts, [role]: addresses });
-                    setMessage("");
-                  }}
-                />
-              </Field>
-            ))}
+            <Field label={t("管理员地址")}>
+              <FormTextArea
+                className="w-full font-mono text-sm"
+                value={accounts.admin.join("\n")}
+                placeholder={t("每行一个 0x…（可留空）")}
+                rows={3}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => {
+                  const addresses = event.target.value
+                    .split(/[\s,]+/)
+                    .map((address) => address.trim())
+                    .filter(Boolean);
+                  setAccounts({ admin: addresses });
+                  setMessage("");
+                }}
+              />
+            </Field>
             <Notice>{message}</Notice>
             <div className="flex flex-wrap gap-3">
               <Button type="submit">{t("保存覆盖配置")}</Button>
@@ -168,14 +163,14 @@ export default function Developer() {
             {wallet || t("尚未连接，请使用顶部钱包按钮连接。")}
           </p>
           <div className="flex flex-wrap gap-2">
-            {matched.map(([role, label]) => (
-              <Chip key={role} size="sm" variant="soft">
-                {t("匹配{role}地址", { role: t(label) })}
+            {isConfiguredAdmin && (
+              <Chip size="sm" variant="soft">
+                {t("匹配管理员地址")}
               </Chip>
-            ))}
-            {wallet && !matched.length && (
+            )}
+            {wallet && !isConfiguredAdmin && (
               <span className="text-sm text-muted">
-                {t("未匹配此处的测试地址。")}
+                {t("当前钱包不是配置的管理员地址。")}
               </span>
             )}
           </div>
@@ -212,21 +207,6 @@ export default function Developer() {
               "连接钱包后，每笔操作仍须由 MetaMask 签名，并由合约检查真实权限。此菜单不是登录或授权入口。",
             )}
           </p>
-          {walletChainId === chainId &&
-            roles
-              .flatMap(([role, label]) =>
-                accounts[role].map((address, index) => (
-                  <Link
-                    key={`${role}-${address}`}
-                    className="text-sm text-accent underline underline-offset-4"
-                    to={`/verify?wallet=${encodeURIComponent(address)}`}
-                  >
-                    {t("查询{role}的许可记录 ↗", {
-                      role: `${t(label)} ${index + 1}`,
-                    })}
-                  </Link>
-                )),
-              )}
         </Panel>
       </div>
     </>
