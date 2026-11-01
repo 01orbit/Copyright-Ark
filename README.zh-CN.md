@@ -2,6 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+**在线访问：** [https://copyright-ark.zsong2308.workers.dev/](https://copyright-ark.zsong2308.workers.dev/)
+
 Copyright Ark 是一个去中心化版权管理平台，支持登记作品文件指纹、发布非独占使用许可和购买授权。作者押金用于支付许可提前终止时的退款与补偿。界面支持中英文，默认使用英文。
 
 前端使用 React、TypeScript、Vite、Tailwind CSS 4、HeroUI 3、Wagmi/Viem；合约使用 Solidity 0.8.28、Hardhat 3、OpenZeppelin。源码分别在 `frontend/`、`contracts/`，文档在 `docs/`，不需要数据库或对象存储订阅。

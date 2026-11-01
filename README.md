@@ -2,6 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+**Website:** [https://copyright-ark.zsong2308.workers.dev/](https://copyright-ark.zsong2308.workers.dev/)
+
 Copyright Ark is a decentralized copyright management platform for registering file fingerprints, offering non-exclusive licenses and purchasing usage rights. Author deposits cover refunds and compensation when a license ends early. The interface supports English and Chinese, with English as the default.
 
 Frontend: React, TypeScript, Vite, Tailwind CSS 4, HeroUI 3 and Wagmi/Viem. Contracts: Solidity 0.8.28, Hardhat 3 and OpenZeppelin. Source lives in `frontend/` and `contracts/`; guides and specifications live in `docs/`. No database or object-storage subscription is required.
