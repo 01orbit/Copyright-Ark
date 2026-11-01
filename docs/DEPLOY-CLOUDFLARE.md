@@ -192,6 +192,24 @@ git push
 
 6. 在 Pages 网址刷新 `/discover`、`/offers`、`/works/1` 等子路径，确认 React 路由仍能打开。项目通过 `frontend/public/_redirects` 将路由交给单页应用处理；如果深层链接刷新得到 404，确认该文件已提交且出现在构建产物中。
 
+### 4.1 如果已经创建的是 Workers 项目
+
+日志出现 `/workers/scripts/.../assets-upload-session` 或设置页面要求填写 **Deploy command**，说明当前使用的是 Workers。可以继续使用，不需要重新创建 Pages 项目或升级套餐。
+
+仓库根目录的 `wrangler.jsonc` 已指定只发布 `frontend/dist`，并为 React 子页面配置 SPA 回退。Workers 构建设置填写：
+
+| 设置 | 值 |
+| --- | --- |
+| Root directory | 仓库根目录，留空或填写 `.` |
+| Build command | `npm ci --prefix frontend && npm run build --prefix frontend` |
+| Deploy command | `npx wrangler deploy` |
+
+将 `wrangler.jsonc` 提交并推送后重新部署；如果现有部署命令含有 `--assets .` 或 `--assets ./frontend`，须删除这些参数，它们会覆盖配置文件中正确的发布目录。Workers 项目名称应与配置中的 `copyright-ark` 一致；使用其他名称时修改配置中的 `name`。
+
+构建环境变量仍使用上一节的 `VITE_SEPOLIA_RPC_URL` 和 `VITE_SEPOLIA_MARKET_ADDRESS`，放在 Workers 的构建设置中，使其在 Vite 构建时可用。线上域名会固定使用 Sepolia。部署成功后使用 Cloudflare 提供的 Workers 网址验收，步骤与下文 Pages 相同。
+
+若出现“静态文件超过 20,000 个”，先检查上传目录。项目应上传 `frontend/dist` 的构建文件，不能上传整个仓库或包含 `node_modules` 的 `frontend` 目录。Wrangler 只上传 `assets.directory` 指定目录内的文件。[官方静态资源配置说明](https://developers.cloudflare.com/workers/static-assets/binding/)
+
 ## 5. 通过 Cloudflare Pages 验收 Sepolia
 
 助教跨电脑验收时应使用 Sepolia。Sepolia 是同一条公共链，作品和许可可由所有连接到同一合约地址的访问者查看；本地 Hardhat 数据不会同步到 Sepolia。
