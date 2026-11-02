@@ -8,7 +8,7 @@ Copyright Ark 是一个去中心化版权管理平台，支持登记作品文件
 
 前端使用 React、TypeScript、Vite、Tailwind CSS 4、HeroUI 3、Wagmi/Viem；合约使用 Solidity 0.8.28、Hardhat 3、OpenZeppelin。源码分别在 `frontend/`、`contracts/`，文档在 `docs/`，不需要数据库或对象存储订阅。
 
-快速跳转：[线上使用](#一线上使用) · [Cloudflare 部署](#二部署到-cloudflare) · [本地运行](#三本地运行) · [排错](#四测试命令与排错) · [机制详解](#五版权管理机制与进一步阅读)。
+快速跳转：[线上使用](#一线上使用) · [本地运行](#二本地运行) · [排错](#三常见问题) · [机制详解](#四版权管理机制与进一步阅读)。
 
 **先选择你要使用的版本：**
 
@@ -73,11 +73,9 @@ Cloudflare 托管前端静态文件，不负责运行本项目的 Hardhat 节点
 
 当前前端可登记、批量挂单、取消有效未成交挂单、接单、作者提前终止、查询、提现、录入及处理案件、同步管理员和给费用池注资。**尚未提供**过期/登记失效挂单退款、许可到期/登记失效结算、案件报酬拨付按钮；对应合约方法存在，但要通过脚本或合约工具单独调用。不要把“已到期”误认为“资金已自动退回钱包”。具体方法和规则见文末机制文档。
 
-## 二、部署到 Cloudflare
+## 二、本地运行
 
-仅验收已有网址可跳过本节。以下所有命令在仓库根目录运行；`--prefix contracts` / `--prefix frontend` 表示使用对应子目录的 npm 工程，不需要反复 `cd`。
-
-### 1. 获取项目和准备 Node.js
+### 1. 下载、安装并理解两个终端
 
 在 GitHub 仓库的 **Code** 中复制自己的仓库地址，替换下面的 `YOUR_REPOSITORY_URL`。已有项目时只进入现有目录，不要重复克隆。
 
@@ -105,133 +103,12 @@ npm ci --prefix frontend
 
 两条命令分别按各自的 `package-lock.json` 安装合约与前端依赖。`npm ci` 会重新安装对应 `node_modules`，不会替你修改依赖版本，也不部署合约。
 
-### 2. 配置部署钱包
-
-仅首次没有 `contracts/.env` 时执行：
-
-```bash
-cp contracts/.env.example contracts/.env
-```
-
-复制配置模板。**已有 `.env` 就直接编辑，不要用此命令覆盖已经填写的配置。** 填写：
-
-```dotenv
-SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
-DEPLOYER_PRIVATE_KEY=0xYOUR_SEPOLIA_TEST_PRIVATE_KEY
-INITIAL_ADMIN_ADDRESS=0xYOUR_INITIAL_OWNER_ADDRESS
-ETHERSCAN_API_KEY=
-```
-
-| 配置 | 含义 |
-| --- | --- |
-| `SEPOLIA_RPC_URL` | Hardhat 访问 Sepolia 的接口；默认 PublicNode，无需 API Key，可能遇到限流。 |
-| `DEPLOYER_PRIVATE_KEY` | 专用测试钱包私钥，用于本机签名部署交易；该钱包需要 Sepolia 测试 ETH。 |
-| `INITIAL_ADMIN_ADDRESS` | 初始 owner 的公开地址。显式填写可避免混淆；留空时先读取 `contracts/test-accounts.json` 对应链的首个 admin，再回退到部署钱包。仓库默认 Sepolia admin 为空。 |
-| `ETHERSCAN_API_KEY` | 当前部署、导出和只读检查不使用它，可以留空；这些步骤也不会自动进行 Etherscan 源码验证。 |
-
-私钥只放在本机的 `contracts/.env`，不填入 GitHub、Cloudflare、前端配置或管理员地址框。部署脚本在本机签名，所以不弹 MetaMask；这与前端请求 MetaMask 签名是两种签名方式，都会付真实的测试网 Gas。
-
-### 3. 检查、部署和导出
-
-按顺序执行，某一步失败先处理，不要直接跳到后面：
-
-```bash
-npm run check:sepolia --prefix contracts
-npm run build --prefix contracts
-npm test --prefix contracts
-npm run deploy:sepolia --prefix contracts
-npm run export:sepolia --prefix contracts
-npm run smoke:sepolia --prefix contracts
-```
-
-| 命令 | 功能与结果 | 是否支付 Sepolia Gas |
-| --- | --- | --- |
-| `check:sepolia` | 只读检查 RPC、Chain ID 和最新区块，不需要私钥。 | 否 |
-| 合约 `build` | 编译 Solidity，产生本机 ABI 和字节码。 | 否 |
-| 合约 `test` | 在隔离的模拟链运行测试，不操作公开 Sepolia，也不会往你手动启动的本地节点灌数据。 | 否 |
-| `deploy:sepolia` | 用配置的钱包部署新 `CopyrightMarket`，等待回执，写入 `contracts/deployments/11155111.json`。 | **是** |
-| `export:sepolia` | 将 ABI 和该网络部署记录导出到 `frontend/src/generated/`，保留另一网络地址。 | 否 |
-| `smoke:sepolia` | 只读检查部署记录的代码、owner、条款版本与批量上限 `20`。 | 否 |
-
-记录部署输出的 `0x...` 合约地址。**每次执行 `deploy:sepolia` 都是新的空白实例，不是升级原地址**。本地示例不会自动生成到 Sepolia。
-
-### 4. 配置 Cloudflare Workers
-
-已有 `workers.dev` 项目继续使用原项目，不需要重新建 Pages。首次部署时，在 Cloudflare **Workers & Pages** 创建连接 Git 仓库的 Workers 项目并选择部署分支。私有仓库可授权 Cloudflare 访问。
-
-| 设置 | 填写值 |
-| --- | --- |
-| Root directory | 仓库根目录，留空或 `.` |
-| Build command | `npm ci --prefix frontend && npm run build --prefix frontend` |
-| Deploy command | `npx wrangler deploy` |
-| 项目名 | `copyright-ark`，与 `wrangler.jsonc` 的 `name` 一致 |
-
-构建命令先安装前端依赖，成功后再执行 TypeScript 检查和 Vite 打包；`&&` 表示前一步成功才继续。部署命令使用 Wrangler 上传构建结果。`wrangler.jsonc` 已指定只发布 `frontend/dist` 并启用 SPA 路由，不要改成上传整个仓库，也不要加 `--assets .`。无需设置 R2、D1 或运行时后端。
-
-进入 **项目 → Settings → Build → Build variables and secrets**，添加或编辑下列普通文本构建变量。它们在 Vite 打包时使用，不是外层的运行时 Variables & Secrets。[Cloudflare 官方构建配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#build-settings)
-
-| 变量 | 值 |
-| --- | --- |
-| `NODE_VERSION` | `24.15.0` |
-| `VITE_DEFAULT_CHAIN_ID` | `11155111` |
-| `VITE_SEPOLIA_RPC_URL` | `https://ethereum-sepolia-rpc.publicnode.com`，或自己的公开可用 Sepolia RPC |
-| `VITE_SEPOLIA_MARKET_ADDRESS` | 本次新部署的合约地址，不能填钱包地址或本地合约地址 |
-
-`VITE_*` 会进入浏览器文件，都是公开配置。环境变量中的合约地址优先于 `frontend/src/generated/deployments.json`，因此仅更新导出文件而不改旧环境变量仍会连到旧合约。保存变量后必须重新构建。
-
-### 5. 提交代码并触发构建
-
-先本机验证前端：
-
-```bash
-npm test --prefix frontend -- --run
-npm run build --prefix frontend
-```
-
-第一条一次性运行前端自动测试并退出；不带 `--run` 会进入监听模式。第二条做 TypeScript 检查并生成 `frontend/dist`。二者都不会部署公开合约或发交易。
-
-确认改动：
-
-```bash
-git status --short
-git diff --check
-```
-
-第一条列出更改文件；第二条检查补丁空白格式。确认没有 `.env` 或其他密钥文件；公开 ABI、公开部署记录应提交。随后在检查过全部改动的前提下执行：
-
-```bash
-git add README.md README.zh-CN.md docs contracts frontend wrangler.jsonc
-git commit -m "Update Copyright Ark deployment and interface"
-git push
-```
-
-`git add` 暂存这些目录和文件中未被忽略的改动；`git commit` 建立本机提交；`git push` 推送当前分支（假设已配置远程跟踪分支）。确保该分支就是 Cloudflare 监听的生产分支。推送将触发 Git 集成构建；代码已推送但刚改变量时，可在构建记录选择 **Retry build**。
-
-部署成功后访问控制台给出的 `https://<worker-name>.<account-subdomain>.workers.dev`。刷新 `/discover`、`/offers` 等子页面也应正常打开。新合约最初没有作品，按第一节重新登记并验收。
-
-使用 Pages 也可以：根目录和构建命令相同，输出目录填 `frontend/dist`，不填 Workers 部署命令；构建环境变量在 Pages 项目设置中配置，成功后使用控制台给出的 `pages.dev` 网址。详见 [Pages 官方指南](https://developers.cloudflare.com/pages/get-started/git-integration/)。
-
-### 6. 以后如何更新
-
-| 改了什么 | 要做什么 |
-| --- | --- |
-| README、样式或普通前端逻辑 | 测试/构建后提交推送，Cloudflare 重建；不重新部署合约。 |
-| Solidity，尤其新增 `createOffers` | 重新编译测试、部署、导出、更新 Cloudflare 构建合约地址并重建。旧合约不支持新增方法。 |
-| Cloudflare 构建环境变量 | 保存后重试构建，单纯刷新网站无效。 |
-| 管理员名单 | 当前 owner 在 `/dev` 同步上链，不需要重新构建。 |
-
-更换合约前记录旧地址。旧作品、许可、押金、可领取余额及管理员权限留在旧合约，不会自动迁移；需要继续操作旧资金时先在旧站点处理，未到期押金仍遵守原条款。新合约的额外管理员需要重新授权。
-
-## 三、本地运行
-
-### 1. 下载、安装并理解两个终端
-
-按第二节第 1 步取得仓库、准备 Node.js 并分别安装 `contracts`、`frontend` 依赖；若已经完成无需重复。**两个终端都进入同一个项目根目录。**
+若已完成安装，无需重复。以下所有命令在仓库根目录运行；`--prefix contracts` / `--prefix frontend` 表示使用对应子目录的 npm 工程。**两个终端都进入同一个项目根目录。**
 
 - 终端一始终运行 Hardhat 节点。
 - 终端二先部署示例和导出接口，再运行前端并保持运行。
 
-只是运行 `npm test` 不会启动供浏览器长期访问的节点；只是启动节点也不会自动生成作品示例。下面步骤需要按顺序执行。
+启动节点不会自动生成作品示例，还需要执行后面的示例生成和接口导出命令。
 
 ### 2. 终端一：启动本地链
 
@@ -341,15 +218,7 @@ npm run dev --prefix frontend
 
 不需要每次重新安装依赖或重新导入相同私钥。Hardhat 内存状态在节点停止后丢失；MetaMask 若因旧 nonce 报错，只针对本地测试账户检查“清除活动和 nonce 数据”等版本对应设置，不要为此重置整个钱包。
 
-## 四、测试命令与排错
-
-```bash
-npm test --prefix contracts
-npm test --prefix frontend -- --run
-npm run build --prefix frontend
-```
-
-分别运行合约隔离测试、前端单次测试、生产构建。当前已有 10 项合约测试及 26 项前端测试；不会自动打开预览，也不替代真实 MetaMask 弹窗和 Sepolia 交易验收。
+## 三、常见问题
 
 | 现象 | 检查 |
 | --- | --- |
@@ -362,7 +231,7 @@ npm run build --prefix frontend
 | MetaMask 活动中没有脚本交易或到账单 | 活动列表不是完整链上账本；使用交易哈希、区块浏览器和合约余额核对。 |
 | 查询漏掉大量许可 | 当前 `/verify` 最多读取该买家的前 50 份许可；不代表超出部分不存在。 |
 
-## 五、版权管理机制与进一步阅读
+## 四、版权管理机制与进一步阅读
 
 登记是权利声明，不是自动确权；平台不上传原件、不自动审核侵权，也不自动交付作品。机制文档按当前代码说明权限、交易、押金、违约、案件、历史查询和界面边界：
 
@@ -370,4 +239,3 @@ npm run build --prefix frontend
 - [Copyright management mechanism (English)](docs/COPYRIGHT-MECHANISM.md)
 - [标准许可条款 v1（中文）](docs/LICENSE-TERMS-V1.md) / [English](docs/LICENSE-TERMS-V1.en.md)
 - [本地示例编号、账户和金额核验](docs/LOCAL-SAMPLES.md)
-- [更详细的 Cloudflare 部署与验收参考](docs/DEPLOY-CLOUDFLARE.md)

@@ -8,7 +8,7 @@ Copyright Ark is a decentralized copyright management platform for registering f
 
 Frontend: React, TypeScript, Vite, Tailwind CSS 4, HeroUI 3 and Wagmi/Viem. Contracts: Solidity 0.8.28, Hardhat 3 and OpenZeppelin. Source lives in `frontend/` and `contracts/`; guides and specifications live in `docs/`. No database or object-storage subscription is required.
 
-Jump to: [Hosted use](#1-using-the-hosted-site) · [Cloudflare deployment](#2-deploying-to-cloudflare) · [Local setup](#3-running-locally) · [Troubleshooting](#4-test-commands-and-troubleshooting) · [Mechanism](#5-copyright-mechanism-and-further-reading).
+Jump to: [Hosted use](#1-using-the-hosted-site) · [Local setup](#2-running-locally) · [Troubleshooting](#3-troubleshooting) · [Mechanism](#4-copyright-mechanism-and-further-reading).
 
 **Choose how you want to use it:**
 
@@ -73,11 +73,9 @@ Synchronization **replaces the entire additional-administrator list**, rather th
 
 The frontend supports registration, batch offers, cancellation of open offers, purchases, author early termination, lookup, withdrawals, case creation/decisions, administrator synchronization and reward-pool funding. It **does not yet expose buttons** for refunding expired/invalidated offers, settling expired/invalidated licenses, or crediting case rewards. The contract implements those operations, but scripts or contract tools must call them separately. An expired status does not mean that funds were automatically returned to a wallet. See the mechanism documentation linked at the end.
 
-## 2. Deploying to Cloudflare
+## 2. Running locally
 
-Skip this section when using an existing website. Run every command below from the repository root. `--prefix contracts` and `--prefix frontend` select the relevant npm project without repeatedly changing directories.
-
-### Step 1 — Get the repository and Node.js
+### Step 1 — Download, install and understand the terminals
 
 Copy your repository URL from GitHub's **Code** menu and replace `YOUR_REPOSITORY_URL` below. If the repository already exists locally, enter that directory instead of cloning again.
 
@@ -105,133 +103,12 @@ npm ci --prefix frontend
 
 These install the contract and frontend dependencies using their respective lockfiles. `npm ci` replaces the selected `node_modules` without changing dependency versions; it does not deploy anything.
 
-### Step 2 — Configure the deployment wallet
-
-Only if `contracts/.env` does not already exist:
-
-```bash
-cp contracts/.env.example contracts/.env
-```
-
-This copies the template. **Edit an existing `.env` directly instead of overwriting it.** Set:
-
-```dotenv
-SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
-DEPLOYER_PRIVATE_KEY=0xYOUR_SEPOLIA_TEST_PRIVATE_KEY
-INITIAL_ADMIN_ADDRESS=0xYOUR_INITIAL_OWNER_ADDRESS
-ETHERSCAN_API_KEY=
-```
-
-| Setting | Purpose |
-| --- | --- |
-| `SEPOLIA_RPC_URL` | Hardhat's Sepolia endpoint. PublicNode is the default and requires no API key; rate limiting is possible. |
-| `DEPLOYER_PRIVATE_KEY` | A dedicated test wallet key used to sign deployments locally. That wallet needs Sepolia ETH. |
-| `INITIAL_ADMIN_ADDRESS` | Initial owner's public address. Set explicitly to avoid ambiguity. If empty, deployment first tries the chain's first admin in `contracts/test-accounts.json`, then the deployer. The repository's Sepolia admin list is empty by default. |
-| `ETHERSCAN_API_KEY` | Not used by the current deploy, export or read-only check scripts; leave empty. These steps do not automatically verify contract source on Etherscan. |
-
-Keep the private key only in local `contracts/.env`, never in GitHub, Cloudflare, frontend variables or administrator inputs. Deployment scripts sign locally, so MetaMask does not open. Both local-key signing and MetaMask signing produce real testnet transactions and pay gas.
-
-### Step 3 — Check, deploy and export
-
-Run in order. Resolve a failure before moving to the next command:
-
-```bash
-npm run check:sepolia --prefix contracts
-npm run build --prefix contracts
-npm test --prefix contracts
-npm run deploy:sepolia --prefix contracts
-npm run export:sepolia --prefix contracts
-npm run smoke:sepolia --prefix contracts
-```
-
-| Command | Purpose and output | Sepolia gas? |
-| --- | --- | --- |
-| `check:sepolia` | Reads the RPC chain ID and latest block. No private key required. | No |
-| Contract `build` | Compiles Solidity into local ABI and bytecode artifacts. | No |
-| Contract `test` | Runs isolated simulated-chain tests, without changing public Sepolia or populating a manually running local node. | No |
-| `deploy:sepolia` | Deploys a new `CopyrightMarket`, waits for its receipt, and writes `contracts/deployments/11155111.json`. | **Yes** |
-| `export:sepolia` | Exports ABI and deployment information to `frontend/src/generated/`, retaining the other network's record. | No |
-| `smoke:sepolia` | Reads deployed code, owner, terms version and the batch limit `20`. | No |
-
-Save the printed `0x...` contract address. **Each `deploy:sepolia` creates a new empty instance; it does not upgrade the old address.** Local sample data is never automatically created on Sepolia.
-
-### Step 4 — Configure Cloudflare Workers
-
-An existing `workers.dev` project can keep its project and URL. For a first deployment, create a Git-connected Worker in Cloudflare **Workers & Pages** and select the deployment branch. Private repositories can be used by granting Cloudflare access.
-
-| Setting | Value |
-| --- | --- |
-| Root directory | Repository root: blank or `.` |
-| Build command | `npm ci --prefix frontend && npm run build --prefix frontend` |
-| Deploy command | `npx wrangler deploy` |
-| Project name | `copyright-ark`, matching `name` in `wrangler.jsonc` |
-
-The build command installs frontend dependencies, then runs TypeScript checks and Vite bundling. `&&` runs the second command only if the first succeeds. Wrangler uploads the build output. `wrangler.jsonc` already selects `frontend/dist` and SPA routing; do not upload the whole repository or add `--assets .`. No R2, D1 or application backend is needed.
-
-In **Project → Settings → Build → Build variables and secrets**, add or edit these text variables. They are consumed during Vite compilation, separately from runtime Variables & Secrets. [Official Workers build settings](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#build-settings)
-
-| Variable | Value |
-| --- | --- |
-| `NODE_VERSION` | `24.15.0` |
-| `VITE_DEFAULT_CHAIN_ID` | `11155111` |
-| `VITE_SEPOLIA_RPC_URL` | `https://ethereum-sepolia-rpc.publicnode.com`, or another publicly usable Sepolia RPC |
-| `VITE_SEPOLIA_MARKET_ADDRESS` | The newly deployed contract address, not a wallet or local-contract address |
-
-`VITE_*` values are public in browser assets. An environment address overrides `frontend/src/generated/deployments.json`; updating only the exported file while retaining an old environment value still connects to the old contract. Rebuild after changing variables.
-
-### Step 5 — Commit and trigger a build
-
-Check the frontend locally:
-
-```bash
-npm test --prefix frontend -- --run
-npm run build --prefix frontend
-```
-
-The first command runs frontend tests once and exits; omitting `--run` starts watch mode. The second checks TypeScript and creates `frontend/dist`. Neither sends public-chain transactions.
-
-Inspect the changes:
-
-```bash
-git status --short
-git diff --check
-```
-
-The first lists changed files; the second checks patch whitespace. Check that no `.env` or other key files are included. Public ABI and deployment records should be committed. After reviewing all changes:
-
-```bash
-git add README.md README.zh-CN.md docs contracts frontend wrangler.jsonc
-git commit -m "Update Copyright Ark deployment and interface"
-git push
-```
-
-`git add` stages non-ignored changes in those files/directories; `git commit` records a local revision; `git push` uploads the current branch, assuming its remote tracking branch is configured. Use the production branch watched by Cloudflare. Pushing triggers the Git build; if the code is already pushed and only variables changed, select **Retry build** in the build history.
-
-After success, open the dashboard URL, typically `https://<worker-name>.<account-subdomain>.workers.dev`. Refreshing `/discover` or `/offers` should work. The new contract begins empty; register works and follow section 1.
-
-Pages is also supported: use the same root and build command, output `frontend/dist`, and no Workers deploy command. Configure build variables in the Pages project settings and use its `pages.dev` URL. See the [official Pages guide](https://developers.cloudflare.com/pages/get-started/git-integration/).
-
-### Step 6 — Future updates
-
-| Change | Required work |
-| --- | --- |
-| README, styling or ordinary frontend code | Check/build, commit and push for a new Cloudflare build. No contract deployment. |
-| Solidity, especially adding `createOffers` | Compile/test, redeploy, export, update the Cloudflare contract address, and rebuild. Old contracts lack new methods. |
-| Cloudflare build variables | Save and rebuild; refreshing the website alone has no effect. |
-| Administrator list | Current owner synchronizes it in `/dev`; no frontend rebuild. |
-
-Keep the previous contract address before switching. Old works, licenses, deposits, claimable funds and permissions stay there without automatic migration. Handle needed old funds through the old deployment; unexpired deposits still obey the old terms. Authorize additional administrators again on the new contract.
-
-## 3. Running locally
-
-### Step 1 — Download, install and understand the terminals
-
-Follow section 2, step 1 to obtain the repository, prepare Node.js and install both dependency sets. Skip already completed installation. **Both terminals must be in the same repository root.**
+Skip installation if already completed. Run all commands from the repository root; `--prefix contracts` and `--prefix frontend` select the relevant npm project. **Both terminals must be in the same repository root.**
 
 - Terminal 1 runs the Hardhat node continuously.
 - Terminal 2 deploys samples and exports the interface, then runs the frontend continuously.
 
-`npm test` does not start a long-running browser-accessible node. Starting a node alone does not populate sample works. Follow the sequence below.
+Starting a node alone does not populate sample works. Run the sample generation and interface export commands below as well.
 
 ### Step 2 — Terminal 1: start the blockchain
 
@@ -341,15 +218,7 @@ After stopping both:
 
 You do not need to reinstall dependencies or import identical keys each time. Hardhat loses its in-memory state on shutdown. If MetaMask reports a stale nonce after restart, inspect the version's clear-activity/nonce setting only for the local test account; do not reset the whole wallet.
 
-## 4. Test commands and troubleshooting
-
-```bash
-npm test --prefix contracts
-npm test --prefix frontend -- --run
-npm run build --prefix frontend
-```
-
-These run isolated contract tests, frontend tests once, and a production build. The current suite contains 10 contract and 26 frontend tests. They do not start a background preview or replace real MetaMask/Sepolia acceptance testing.
+## 3. Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
@@ -362,7 +231,7 @@ These run isolated contract tests, frontend tests once, and a production build. 
 | Script transactions or receipts absent from MetaMask Activity | Activity is not a full blockchain ledger. Check hashes, explorer and contract balances. |
 | Some licenses missing from lookup | Current `/verify` reads only the buyer's first 50 licenses; later records may still exist. |
 
-## 5. Copyright mechanism and further reading
+## 4. Copyright mechanism and further reading
 
 Registration is a rights declaration, not automatic ownership verification. The platform does not upload originals, automatically determine infringement or deliver files. These documents describe the current permissions, transactions, deposits, breach handling, cases, historical lookup and interface boundaries:
 
@@ -370,4 +239,3 @@ Registration is a rights declaration, not automatic ownership verification. The 
 - [版权管理机制详解（中文）](docs/COPYRIGHT-MECHANISM.zh-CN.md)
 - [Standard license terms v1 (English)](docs/LICENSE-TERMS-V1.en.md) / [中文](docs/LICENSE-TERMS-V1.md)
 - [Local sample IDs, accounts and balance checks (Chinese)](docs/LOCAL-SAMPLES.md)
-- [Additional Cloudflare deployment and acceptance reference (Chinese)](docs/DEPLOY-CLOUDFLARE.md)
